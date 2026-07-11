@@ -1,0 +1,25 @@
+# ===========================================
+# Spring AI MCP Client 示例配置
+# ===========================================
+#
+# 前提: MCP Enterprise Server 已在 localhost:8081 运行
+# 启动方式:
+#   mvn spring-boot:run -pl mcp-examples/mcp-client-spring-ai
+# ===========================================
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: mcp-client-spring-ai-demo
+
+mcp:
+  server:
+    url: http://localhost:8081
+    api-key: ${MCP_API_KEY:default-admin-key}
+
+logging:
+  level:
+    com.mcp: DEBUG
+    org.springframework.ai: INFO
