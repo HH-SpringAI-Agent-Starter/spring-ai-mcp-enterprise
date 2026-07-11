@@ -68,8 +68,25 @@ spring-ai-mcp-enterprise/
 │   ├── tool-database/             # 数据库查询工具
 │   ├── tool-search/               # 搜索查询工具
 │   └── tool-system/               # 系统命令工具
-└── mcp-monitor/                   # 监控中心
-    └── src/main/java/com/mcp/monitor/
+├── mcp-monitor/                   # 监控中心
+│   └── src/main/java/com/mcp/monitor/
+├── examples/                      # 客户端示例
+│   ├── client-java/               # Java SDK 示例 (纯JDK HttpClient)
+│   ├── client-python/             # Python 客户端示例
+│   └── curl-examples.sh           # curl 调用脚本
+├── docs/                          # 文档
+│   ├── quickstart.md              # 快速上手指南
+│   ├── architecture.md            # 架构说明
+│   ├── api-docs.md                # API 文档
+│   ├── blog-java-mcp-enterprise.md # 掘金/CSDN 博客稿件
+│   └── market-research-2026-07.md # MCP 市场机会报告
+├── .github/workflows/             # GitHub Actions CI/CD
+│   └── maven-ci.yml               # 自动构建+测试+Docker推送
+├── Dockerfile                     # 多阶段构建
+├── docker-compose.yml             # Docker Compose (Server+Prometheus+Grafana)
+├── config/prometheus/             # Prometheus 监控配置
+└── mcp-server/src/main/resources/
+    └── application-alibaba.yml    # Spring AI Alibaba 集成配置
 ```
 
 ---
