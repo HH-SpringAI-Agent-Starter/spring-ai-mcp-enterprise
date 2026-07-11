@@ -1,14 +1,22 @@
 # ===========================================
 # MCP Enterprise Server — Docker Compose
-# 快速启动：企业版 MCP Server + 监控
+# 快速启动 + 监控 + 数据库集成示例
 # ===========================================
 #
-# 使用方式：
-#   docker-compose up -d
-#   docker-compose logs -f
+# 基本使用：
+#   docker compose up -d                    # 启动 MCP Server
+#
+# 带监控：
+#   docker compose --profile monitoring up -d
+#
+# 完整开发环境：
+#   docker compose --profile full up -d
+#
+# 查看日志：
+#   docker compose logs -f mcp-server
 # ===========================================
 
-version: "3.8"
+name: mcp-enterprise
 
 services:
   # ===== MCP Enterprise Server =====
@@ -16,39 +24,87 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - MAVEN_BUILD_OPTS=--no-transfer-progress
     container_name: mcp-enterprise-server
     ports:
       - "8081:8081"
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-default}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - MCP_API_KEY=${MCP_API_KEY:-changeme-in-production}
+      - MCP_TOOL_DATABASE_ENABLED=false
+      - MCP_TOOL_SEARCH_ENABLED=true
+      - MCP_TOOL_SYSTEM_ENABLED=true
       - JAVA_OPTS=-Xmx512m -Xms256m
+      - TZ=Asia/Shanghai
     volumes:
       - mcp-data:/app/data
       - mcp-logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
       retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 256M
+    networks:
+      - mcp-network
+    labels:
+      - "mcp.enterprise/role=server"
+      - "mcp.enterprise/version=0.0.2"
+
+  # ===== MySQL 数据库（示例 - 可选）=====
+  mysql:
+    image: mysql:8.0
+    profiles:
+      - with-db
+      - full
+    container_name: mcp-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-mcp_root_123}
+      - MYSQL_DATABASE=mcp_enterprise
+      - MYSQL_USER=mcp_user
+      - MYSQL_PASSWORD=mcp_pass_123
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./config/mysql/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
     networks:
       - mcp-network
 
   # ===== Prometheus 监控（可选）=====
   prometheus:
     image: prom/prometheus:latest
-    container_name: mcp-prometheus
     profiles:
       - monitoring
+      - full
+    container_name: mcp-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
     restart: unless-stopped
     networks:
       - mcp-network
@@ -56,13 +112,15 @@ services:
   # ===== Grafana 仪表盘（可选）=====
   grafana:
     image: grafana/grafana:latest
-    container_name: mcp-grafana
     profiles:
       - monitoring
+      - full
+    container_name: mcp-grafana
     ports:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
       - grafana-data:/var/lib/grafana
     restart: unless-stopped
@@ -71,12 +129,31 @@ services:
     depends_on:
       - prometheus
 
+  # ===== Node Exporter（主机监控 - 可选）=====
+  node-exporter:
+    image: prom/node-exporter:latest
+    profiles:
+      - monitoring
+      - full
+    container_name: mcp-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
 volumes:
   mcp-data:
   mcp-logs:
+  mysql-data:
   prometheus-data:
   grafana-data:
 
 networks:
   mcp-network:
+    name: mcp-enterprise-network
     driver: bridge

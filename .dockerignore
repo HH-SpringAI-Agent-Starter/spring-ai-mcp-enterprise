@@ -1,0 +1,43 @@
+# MCP Enterprise Server .dockerignore
+
+# Maven
+**/target/
+**/*.class
+**/*.jar
+
+# IDE
+**/.idea/
+**/*.iml
+**/.vscode/
+**/.settings/
+**/.project
+**/.classpath
+
+# Git
+**/.git/
+**/.gitignore
+**/.gitattributes
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Docker
+**/Dockerfile
+**/docker-compose*
+
+# Logs
+**/logs/
+**/*.log
+
+# Temp
+**/tmp/
+**/temp/
+
+# Docs (not needed in runtime image)
+docs/
+README.md
+
+# Config (dev only)
+.env
+*.md
