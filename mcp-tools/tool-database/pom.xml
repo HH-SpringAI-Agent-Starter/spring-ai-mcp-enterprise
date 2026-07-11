@@ -5,13 +5,14 @@
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.0.2-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>tool-database</artifactId>
     <packaging>jar</packaging>
-    <description>数据库查询 MCP 工具</description>
+    <description>数据库查询 MCP 工具 — 支持只读 SQL SELECT 查询</description>
+
     <dependencies>
         <dependency>
             <groupId>com.mcp.enterprise</groupId>
@@ -22,6 +23,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
             <optional>true</optional>
+        </dependency>
+        <!-- 本地开发/测试用 H2 内存数据库 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 </project>

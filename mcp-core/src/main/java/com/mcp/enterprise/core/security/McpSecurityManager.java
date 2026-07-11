@@ -45,6 +45,10 @@ public class McpSecurityManager {
         return Mono.just(true);
     }
 
+    public int getApiKeyCount() {
+        return (int) apiKeys.values().stream().filter(ApiKeyInfo::isActive).count();
+    }
+
     // ===== RBAC 鉴权 =====
 
     public Mono<Boolean> checkPermission(String apiKey, String toolName, String requiredRole) {
@@ -65,7 +69,7 @@ public class McpSecurityManager {
 
     public void audit(String apiKey, String toolName, String action, boolean success, String detail) {
         if (auditLog.size() >= maxAuditLogSize) {
-            auditLog.subList(0, 1000).clear();
+            auditLog.subList(0, Math.min(1000, maxAuditLogSize / 2)).clear();
         }
         auditLog.add(new AuditLogEntry(apiKey, toolName, action, success, detail, System.currentTimeMillis()));
     }
@@ -73,8 +77,12 @@ public class McpSecurityManager {
     public List<AuditLogEntry> getAuditLog(int limit) {
         int size = auditLog.size();
         if (size == 0) return List.of();
-        int from = Math.max(0, size - limit);
+        int from = Math.max(0, size - Math.min(limit, size));
         return new ArrayList<>(auditLog.subList(from, size));
+    }
+
+    public int getAuditLogSize() {
+        return auditLog.size();
     }
 
     // ===== IP 白名单 =====
@@ -84,6 +92,11 @@ public class McpSecurityManager {
     public boolean isIpAllowed(String ip) {
         return ipWhitelist.isEmpty() || ipWhitelist.contains(ip);
     }
+
+    // ===== Getter/Setter =====
+
+    public int getMaxAuditLogSize() { return maxAuditLogSize; }
+    public void setMaxAuditLogSize(int maxAuditLogSize) { this.maxAuditLogSize = maxAuditLogSize; }
 
     // ===== 内部类 =====
 
@@ -132,6 +145,9 @@ public class McpSecurityManager {
             }
             return false;
         }
+
+        public int getMaxPerSecond() { return maxPerSecond; }
+        public long getAvailableTokens() { return tokens.get(); }
     }
 
     public record AuditLogEntry(String apiKey, String toolName, String action, boolean success, String detail, long timestamp) {}

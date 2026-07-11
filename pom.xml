@@ -6,7 +6,7 @@
 
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>spring-ai-mcp-enterprise</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Spring AI MCP Enterprise</name>
@@ -20,6 +20,22 @@
         </license>
     </licenses>
 
+    <developers>
+        <developer>
+            <id>hh-springai</id>
+            <name>HH SpringAI Agent Starter</name>
+            <email>hh.springai@gmail.com</email>
+            <organization>HH-SpringAI-Agent-Starter</organization>
+            <organizationUrl>https://github.com/HH-SpringAI-Agent-Starter</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git@github.com:HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise.git</connection>
+        <developerConnection>scm:git:git@github.com:HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise.git</developerConnection>
+        <url>https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise</url>
+    </scm>
+
     <modules>
         <module>mcp-core</module>
         <module>mcp-spring-boot-starter</module>
@@ -28,6 +44,8 @@
         <module>mcp-tools/tool-search</module>
         <module>mcp-tools/tool-system</module>
         <module>mcp-monitor</module>
+        <module>mcp-integrations/mcp-alibaba</module>
+        <module>mcp-examples/mcp-client-spring-ai</module>
     </modules>
 
     <parent>
@@ -44,7 +62,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-ai.version>1.0.0-M6</spring-ai.version>
         <spring-ai-alibaba.version>1.0.0-M6.1</spring-ai-alibaba.version>
+        <spring-ai-mcp-client.version>1.0.0-M6</spring-ai-mcp-client.version>
         <mcp.version>0.8.0</mcp.version>
+        <spring-ai-mcp-client-webmvc.version>1.0.0-M6</spring-ai-mcp-client-webmvc.version>
+        <jib-maven-plugin.version>3.4.4</jib-maven-plugin.version>
+        <maven-surefire-plugin.version>3.5.2</maven-surefire-plugin.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+        <maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
+        <central-publishing-maven-plugin.version>0.6.0</central-publishing-maven-plugin.version>
+        <project.scm.id>github</project.scm.id>
     </properties>
 
     <dependencyManagement>
@@ -56,13 +83,16 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <dependency>
-                <groupId>com.alibaba.cloud.ai</groupId>
-                <artifactId>spring-ai-alibaba-bom</artifactId>
-                <version>${spring-ai-alibaba.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+            <!-- Spring AI Alibaba BOM: 仅在使用 Alibaba profile 时启用
+                 需在 ~/.m2/settings.xml 中添加仓库或使用阿里云 maven 镜像
+                 <dependency>
+                     <groupId>com.alibaba.cloud.ai</groupId>
+                     <artifactId>spring-ai-alibaba-bom</artifactId>
+                     <version>${spring-ai-alibaba.version}</version>
+                     <type>pom</type>
+                     <scope>import</scope>
+                 </dependency>
+            -->
         </dependencies>
     </dependencyManagement>
 
@@ -72,5 +102,131 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals><goal>jar-no-fork</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals><goal>jar</goal></goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>${maven-gpg-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <goals><goal>sign</goal></goals>
+                            <phase>verify</phase>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>${central-publishing-maven-plugin.version}</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>central</publishingServerId>
+                        <autoPublish>true</autoPublish>
+                        <waitUntilPublished>true</waitUntilPublished>
+                    </configuration>
+                </plugin>
+                <!-- Jib: Docker 构建 -->
+                <plugin>
+                    <groupId>com.google.cloud.tools</groupId>
+                    <artifactId>jib-maven-plugin</artifactId>
+                    <version>${jib-maven-plugin.version}</version>
+                    <configuration>
+                        <from>
+                            <image>eclipse-temurin:17-jre</image>
+                        </from>
+                        <to>
+                            <image>ghcr.io/${project.groupId}/${project.artifactId}:${project.version}</image>
+                        </to>
+                        <container>
+                            <jvmFlags>
+                                <jvmFlag>-Xms512m</jvmFlag>
+                                <jvmFlag>-Xmx1024m</jvmFlag>
+                            </jvmFlags>
+                            <ports>
+                                <port>8081</port>
+                            </ports>
+                        </container>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <!-- Source JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <!-- Javadoc JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <doclint>none</doclint>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- 发布配置：仅用于 mcp-core 和 mcp-spring-boot-starter -->
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

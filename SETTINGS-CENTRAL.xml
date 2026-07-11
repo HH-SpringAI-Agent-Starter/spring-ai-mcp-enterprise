@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Maven Central 发布配置
+
+    使用方法：
+    1. 在 ~/.m2/settings.xml 中添加以下 server 配置：
+    
+    <servers>
+        <server>
+            <id>central</id>
+            <username>YOUR_SONATYPE_USERNAME</username>
+            <password>YOUR_SONATYPE_PASSWORD</password>
+        </server>
+        <server>
+            <id>github</id>
+            <privateKey>YOUR_GPG_PRIVATE_KEY</privateKey>
+            <passphrase>YOUR_GPG_PASSPHRASE</passphrase>
+        </server>
+    </servers>
+
+    2. 发布到 Maven Central：
+    mvn clean deploy -P release -DskipTests
+
+    3. 或者发布 snapshot 版本：
+    mvn clean deploy -DskipTests
+
+    GPG 签名：
+    gpg --gen-key
+    gpg --keyserver keyserver.ubuntu.com --send-keys YOUR_KEY_ID
+    gpg --export-secret-keys -o ~/.gnupg/secring.gpg
+
+    Maven Central 账号注册：
+    - 访问 https://central.sonatype.com/
+    - 使用 GitHub 账号登录
+    - 创建命名空间（对应 com.mcp.enterprise）
+    - 生成 User Token
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
+    <servers>
+        <!-- Maven Central (Sonatype) -->
+        <server>
+            <id>central</id>
+            <username>${env.SONATYPE_USERNAME}</username>
+            <password>${env.SONATYPE_PASSWORD}</password>
+        </server>
+        <!-- GitHub Packages (备用) -->
+        <server>
+            <id>github</id>
+            <username>HH-SpringAI-Agent-Starter</username>
+            <password>${env.GITHUB_TOKEN}</password>
+        </server>
+    </servers>
+
+    <profiles>
+        <profile>
+            <id>central</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <gpg.keyname>${env.GPG_KEY_NAME}</gpg.keyname>
+                <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
+            </properties>
+        </profile>
+    </profiles>
+</settings>

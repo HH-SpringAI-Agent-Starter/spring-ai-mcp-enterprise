@@ -1,11 +1,20 @@
 package com.mcp.enterprise.core.model;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 import java.util.Map;
 
 /**
  * MCP 工具定义 - 企业级扩展
- * 在标准 MCP Tool 基础上增加分类、权限、监控字段
+ *
+ * 在标准 MCP Tool 基础上增加分类、权限、监控字段。
+ * 使用 Lombok 自动生成 getter/setter/toString/equals/hashCode。
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ToolDefinition {
 
     /** 工具唯一标识 */
@@ -32,6 +41,4 @@ public class ToolDefinition {
     private Map<String, Object> inputSchema;
     /** 额外元数据 */
     private Map<String, Object> metadata;
-
-    // getters/setters
 }
