@@ -1,0 +1,17 @@
+target/
+*.class
+*.jar
+*.war
+*.log
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+.vscode/
+.sonarlint/
+logs/
+**/node_modules/
+**/dist/
+**/.DS_Store
+**/Thumbs.db
