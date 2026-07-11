@@ -2,13 +2,13 @@ name: MCP Enterprise CI/CD
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     paths-ignore:
       - 'docs/**'
       - 'README.md'
       - '.gitignore'
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       skip-tests:
@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+
+# GITHUB_TOKEN 需要 packages: write 以推送 Docker 镜像到 ghcr.io
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
@@ -99,11 +104,12 @@ jobs:
         image: oscarfonts/h2:latest
         ports:
           - 1521:1521
+          - 81:81
         options: >-
-          --health-cmd "nc -z localhost 1521 || exit 1"
+          --health-cmd "curl -f http://localhost:81 || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 15
 
     steps:
     - name: Checkout
