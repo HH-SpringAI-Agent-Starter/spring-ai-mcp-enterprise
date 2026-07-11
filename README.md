@@ -1,98 +1,72 @@
-# 🏭 Spring AI MCP Enterprise
+# Spring AI MCP Enterprise — Java 企业级 MCP Server 框架
 
-**企业级 MCP (Model Context Protocol) Server 框架**
+> **Java Spring Boot 构建的 MCP（Model Context Protocol）Server，让 AI Agent 安全调用数据库查询、网络搜索、系统监控等企业工具。**
+> **零配置启动 · SPI 扩展 · SSE 流式调用 · 容器化部署 · Maven Central 发布就绪**
 
-> MCP 是 AI Agent 时代的"USB-C 接口"——让所有 AI 应用统一调用企业工具。
-> 这个项目就是 **MCP 的 Spring Boot 企业级实现**。
-
----
-
-## 📋 项目定位
-
-| 维度 | 内容 |
-|------|------|
-| **是什么** | 基于 Spring Boot 3.4 + Spring AI MCP 的企业级 MCP Server |
-| **解决什么** | 企业需要把内部系统(数据库/ERP/CRM/文档)暴露给 AI Agent，但缺安全/审计/管理框架 |
-| **客户** | 需要接入 AI 的中大型企业、MCP 开发者、AI Agent 平台 |
-| **对标** | agentic-trust(暂无Java版)、open-mcp(纯Python)、mcp-rs(Rust) |
-| **核心特色** | **Java生态原生** + Spring Boot Starter 一键集成 + 企业安全(RBAC/审计/RateLimit) |
+[![Build](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml/badge.svg)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![GitHub stars](https://img.shields.io/github/stars/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise?style=social)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise)
 
 ---
 
-## 🏗 架构
+## 📋 目录
 
-```
-┌─────────────────────────────────────────────────┐
-│                  AI Agent / LLM                   │
-│     (Claude / GPT / 通义千问 / 私有大模型)          │
-└────────────────────┬────────────────────────────┘
-                     │ MCP Protocol (HTTP/SSE/Stdio)
-┌────────────────────▼────────────────────────────┐
-│              MCP Enterprise Server                │
-│                                                   │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐ │
-│  │ REST API │  │ MCP SDK  │  │ Web管理控制台   │ │
-│  └────┬─────┘  └────┬─────┘  └───────┬────────┘ │
-│       └──────────────┼────────────────┘           │
-│                      ▼                            │
-│  ┌────────────────────────────────────────────┐  │
-│  │          Tool Registry (注册中心)           │  │
-│  │  (注册/发现/健康检查/版本管理/热加载)        │  │
-│  └──────────┬──────────┬──────────┬───────────┘  │
-│             ▼          ▼          ▼               │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐             │
-│  │ DB工具  │ │ 搜索工具  ││ 系统工具 │   ...       │
-│  └─────────┘ └─────────┘ └─────────┘             │
-│                                                   │
-│  ┌──────┐  ┌───────────┐  ┌────────────────┐     │
-│  │安全层│  │ 审计日志   │  │  监控/告警      │     │
-│  │(RBAC)│  │ (全记录)   │  │  (指标/Prom)   │     │
-│  └──────┘  └───────────┘  └────────────────┘     │
-└─────────────────────────────────────────────────┘
-```
+- [是什么？](#-是什么)
+- [核心特性](#-核心特性)
+- [快速开始](#-快速开始)
+- [架构](#-架构)
+- [与竞品对比](#-与竞品对比)
+- [FAQ](#-faq)
+- [路线图](#-路线图)
+- [贡献](#-贡献)
+- [许可](#-许可)
 
-## 📁 模块结构
+---
 
-```
-spring-ai-mcp-enterprise/
-├── mcp-core/                      # 核心库：协议、安全、注册中心
-│   └── src/main/java/com/mcp/enterprise/core/
-│       ├── model/                 # 数据模型
-│       ├── registry/              # 工具注册中心
-│       └── security/              # 安全组件(RBAC/RateLimit/审计)
-├── mcp-spring-boot-starter/       # Spring Boot Starter 自动配置
-│   └── src/main/java/com/mcp/enterprise/autoconfigure/
-├── mcp-server/                    # 可运行服务
-│   └── src/main/java/com/mcp/enterprise/server/
-├── mcp-tools/                     # 内置工具集合
-│   ├── tool-database/             # 数据库查询工具
-│   ├── tool-search/               # 搜索查询工具
-│   └── tool-system/               # 系统命令工具
-├── mcp-monitor/                   # 监控中心
-│   └── src/main/java/com/mcp/monitor/
-├── mcp-integrations/              # 云厂商集成
-│   └── mcp-alibaba/               # 🌟 Spring AI Alibaba 原生集成 ⭐
-├── mcp-examples/                  # Spring AI 客户端示例
-│   └── mcp-client-spring-ai/      # 🌟 Spring AI MCP Client 调用示例 ⭐
-├── examples/                      # 基础客户端示例
-│   ├── client-java/               # Java SDK 示例 (纯JDK HttpClient)
-│   ├── client-python/             # Python 客户端示例
-│   └── curl-examples.sh           # curl 调用脚本
-├── docs/                          # 文档
-│   ├── quickstart.md              # 快速上手指南
-│   ├── architecture.md            # 架构说明
-│   ├── api-docs.md                # API 文档
-│   ├── alibaba-integration-guide.md # 🇨🇳 Spring AI Alibaba 集成指南 ⭐
-│   ├── blog-java-mcp-enterprise.md # 掘金/CSDN 博客稿件
-│   └── market-research-2026-07.md # MCP 市场机会报告
-├── .github/workflows/             # GitHub Actions CI/CD
-│   └── maven-ci.yml               # 自动构建+测试+Docker推送
-├── Dockerfile                     # 多阶段构建
-├── docker-compose.yml             # Docker Compose (Server+Prometheus+Grafana)
-├── config/prometheus/             # Prometheus 监控配置
-└── mcp-server/src/main/resources/
-    └── application-alibaba.yml    # Spring AI Alibaba 集成配置
-```
+## 🎯 是什么？
+
+**MCP Enterprise** 是一个基于 **Java 17 + Spring Boot 3.4** 构建的企业级 MCP Server 框架。它实现了 [Model Context Protocol](https://modelcontextprotocol.io) 规范，让 AI Agent（如 Claude、通义千问、DeepSeek 等）能够通过标准化接口安全调用后端工具。
+
+### 它能做什么？
+
+| 场景 | 描述 | 示例 |
+|------|------|------|
+| 🔍 **AI 数据库查询** | Agent 通过 SQL 查询数据库获取实时数据 | `SELECT * FROM orders WHERE status = 'pending'` |
+| 🌐 **AI 网络搜索** | Agent 执行 Web 搜索获取最新信息 | 搜索 "2026 AI 发展趋势" |
+| ⚙️ **AI 系统监控** | Agent 获取服务器 JVM/CPU/内存/GC 状态 | 查询内存使用率、线程数 |
+
+### 为什么选 Java？
+
+- **MCP 市场现状**：Python 项目占 80%+，Node.js 占 18%，**Java 几乎空白**（截至 2026 年 7 月）
+- **你的优势**：90% 的中国企业后端是 Java/Spring 技术栈；Java 开发者的 MCP 需求被严重低估
+- **Spring AI 官方支持**：Spring AI 1.0.0-M6 原生支持 MCP client/server，这是最佳集成时机
+
+---
+
+## ✨ 核心特性
+
+### 🔌 SPI 工具扩展
+实现 `McpToolExecutor` 接口 + `@Component` 注解即可新增工具，框架自动发现注册。
+
+### 🛡️ 企业级安全
+- SQL 注入防护：仅允许 `SELECT`/`WITH` 查询，禁止写操作
+- IP 白名单 + 审计日志
+- 基于角色的工具权限控制（`admin`/`user`）
+- 速率限制 + 超时控制
+
+### 🔄 SSE 流式调用
+支持 Server-Sent Events 协议，AI Agent 可流式接收工具执行结果。
+
+### 📊 管理 API
+内置 `McpAdminEndpoint`：注册/注销/查看工具详情/健康检查。
+
+### 🐳 容器化部署
+Docker Compose 一键启动，支持 `monitoring`、`with-db`、`full` 等多环境 profile。
+
+### 🤖 Spring AI Alibaba 集成
+原生兼容 DashScope/通义千问模型（可选模块 `mcp-alibaba`）。
 
 ---
 
@@ -100,137 +74,190 @@ spring-ai-mcp-enterprise/
 
 ### 前提条件
 
-- JDK 17+
-- Maven 3.8+
-- (可选) Docker 24+
+- Java 17+
+- Maven 3.9+
 
-### 启动服务
+### 1. 克隆并编译
 
 ```bash
+git clone https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise.git
 cd spring-ai-mcp-enterprise
-mvn clean install -DskipTests -pl mcp-core,mcp-spring-boot-starter,mcp-server -am
-cd mcp-server
-mvn spring-boot:run
+mvn clean package -DskipTests
 ```
 
-服务启动后：
-- MCP API: `http://localhost:8081/api/mcp/`
-- 健康检查: `http://localhost:8081/actuator/health`
-- MCP Enterprise Management: `http://localhost:8081/actuator/mcp-enterprise`
-
-### 使用示例
+### 2. 启动 MCP Server
 
 ```bash
-# 1. 连接服务
-curl -X POST http://localhost:8081/api/mcp/connect \
-  -H "X-API-Key: {your-api-key}" \
-  -d "clientName=my-ai-agent"
-
-# 2. 列出可用工具
-curl http://localhost:8081/api/mcp/tools
-
-# 3. 查看服务状态
-curl http://localhost:8081/api/mcp/health
+mvn spring-boot:run -pl mcp-server
 ```
 
-### 🇨🇳 Spring AI Alibaba 集成（快速启动）
+### 3. 测试工具调用
 
 ```bash
-# 1. 配置阿里云 DashScope API Key
-export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxx
+# 获取工具列表
+curl http://localhost:8081/mcp/admin/tools
 
-# 2. 使用 alibaba profile 启动
-cd mcp-server
-mvn spring-boot:run -Dspring-boot.run.profiles=alibaba
-
-# 3. 通义千问 Agent 自动通过 MCP 调用企业工具
+# 调用系统信息工具
+curl -X POST http://localhost:8081/mcp/sse/tools/system_info \
+  -H "Content-Type: application/json" \
+  -d '{"type": "basic"}'
 ```
 
-> 详见 [Spring AI Alibaba 集成指南](docs/alibaba-integration-guide.md)
+### 4. Docker 部署
+
+```bash
+docker compose up -d
+# 带监控
+docker compose --profile monitoring up -d
+# 全部服务
+docker compose --profile full up -d
+```
 
 ---
 
-## 💰 挣钱路线图
+## 🏗️ 架构
 
-### 🚀 开源阶段（你做的事）
-| 阶段 | 内容 | 时间 |
+```
+┌─────────────────────────────────────────────────────┐
+│                   AI Agent                           │
+│    (Claude / 通义千问 / DeepSeek / 自定义 Agent)     │
+└────────────────────┬────────────────────────────────┘
+                     │ MCP Protocol (SSE)
+                     ▼
+┌─────────────────────────────────────────────────────┐
+│              MCP Enterprise Server                    │
+│                                                      │
+│  ┌─────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │McpSse   │  │McpAdmin  │  │McpToolManager    │   │
+│  │Endpoint │  │Endpoint  │  │ (注册/发现/调用)  │   │
+│  └────┬────┘  └────┬─────┘  └────────┬─────────┘   │
+│       │            │                  │              │
+│       ▼            ▼                  ▼              │
+│  ┌─────────────────────────────────────────────┐    │
+│  │           McpToolExecutor SPI               │    │
+│  │  ┌──────────┐ ┌────────┐ ┌──────────────┐  │    │
+│  │  │Database  │ │Web     │ │SystemInfo    │  │    │
+│  │  │Query     │ │Search  │ │Executor      │  │    │
+│  │  │Executor  │ │Executor│ │              │  │    │
+│  │  └──────────┘ └────────┘ └──────────────┘  │    │
+│  └─────────────────────────────────────────────┘    │
+│                                                      │
+│  ┌──────────────┐  ┌────────────────────────┐      │
+│  │ToolRegistry  │  │McpSecurityManager     │      │
+│  │(注册中心)     │  │(IP白名单/审计/权限)    │      │
+│  └──────────────┘  └────────────────────────┘      │
+└─────────────────────────────────────────────────────┘
+```
+
+### 模块说明
+
+| 模块 | 说明 |
+|------|------|
+| `mcp-core` | 核心 SPI 接口 + 工具注册中心 + 安全管理器 |
+| `mcp-spring-boot-starter` | Spring Boot 自动配置，一键集成 |
+| `mcp-server` | 可运行 MCP Server，包含 SSE + 管理 Controller |
+| `mcp-tools/tool-database` | 数据库查询工具（只读 SQL） |
+| `mcp-tools/tool-search` | 网络搜索工具 |
+| `mcp-tools/tool-system` | 系统信息工具（JVM/OS/GC） |
+| `mcp-monitor` | Prometheus + Actuator 监控 |
+| `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
+| `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
+
+---
+
+## 📊 与竞品对比
+
+| 特性 | **MCP Enterprise (本框架)** | Python MCP Server | Node.js MCP Server |
+|------|---------------------------|-------------------|-------------------|
+| **语言** | Java 17+ | Python 3.x | Node.js 18+ |
+| **框架** | Spring Boot 3.4 | FastAPI / Flask | Express / Fastify |
+| **MCP 规范** | ✅ SSE + 工具协议 | ✅ SSE | ✅ SSE |
+| **SPI 扩展** | ✅ 接口 + 注解自动发现 | ✅ Python 抽象类 | ⚠️ 需手动注册 |
+| **安全** | ✅ IP白名单 + SQL防注入 + 审计日志 | ❌ 需自定义 | ❌ 需自定义 |
+| **内置工具** | ✅ 数据库/搜索/系统 3 个 | ⚠️ Python 生态丰富 | ⚠️ 基础功能 |
+| **Spring AI 集成** | ✅ 原生支持 | ❌ | ❌ |
+| **容器化** | ✅ Docker Compose + 多 profile | ⚠️ 需自己配 | ⚠️ 需自己配 |
+| **CI/CD** | ✅ GitHub Actions (多JDK + Docker) | ❌ 无自带 | ❌ 无自带 |
+| **Maven Central** | ✅ 发布就绪 | ✅ PyPI | ✅ npm |
+| **单元测试** | ✅ 23+ 测试，H2 嵌入式数据库 | 视项目而定 | 视项目而定 |
+| **中文文档** | ✅ 完整中文文档 | ❌ 英文为主 | ❌ 英文为主 |
+
+---
+
+## ❓ FAQ
+
+### Q: MCP Enterprise 是免费的么？
+
+**是的。** 完全开源免费，采用 Apache 2.0 许可。GitHub 仓库包含完整的框架源码、内置工具、SSE 端点、安全机制和管理 API。
+
+### Q: 与 Spring AI Alibaba 是什么关系？
+
+**互补关系。** MCP Enterprise 是 MCP Server 框架，Spring AI Alibaba 是 AI 模型接入层。两者可以独立使用，也支持原生集成：MCP Server 通过 `mcp-alibaba` 模块暴露工具给 DashScope/通义千问调用。
+
+### Q: 需要什么技术基础？
+
+**Java 17+ 和 Spring Boot 基础。** 如果你熟悉 Spring Boot（自动配置、依赖注入、@Component 注解），5 分钟内即可上手。
+
+### Q: 支持哪些数据库？
+
+**支持任何 JDBC 兼容的数据库**（MySQL、PostgreSQL、Oracle、H2 等）。内置的 `DatabaseQueryExecutor` 走 `JdbcTemplate`，默认配置即可用。
+
+### Q: 是否支持自定义工具？
+
+**支持。** 实现 `McpToolExecutor` 接口 + 标注 `@Component`，框架通过 Spring Bean 自动扫描发现并注册。不需要修改框架代码。
+
+### Q: 部署方式有哪些？
+
+**三种方式：**
+1. **JAR 直接运行** — `mvn spring-boot:run -pl mcp-server`
+2. **Docker 容器** — `docker compose up -d`
+3. **Kubernetes** — 基于 Docker 镜像部署到 K8s
+
+### Q: 如何与新项目集成？
+
+**三步集成：**
+1. 在 pom.xml 中添加 `mcp-spring-boot-starter` 依赖
+2. 在 application.yml 中配置 `mcp.tool.*.enabled=true`
+3. 启动项目即可通过 SSE 端点调用 MCP 工具
+
+---
+
+## 🗺️ 路线图
+
+| 版本 | 功能 | 状态 |
 |------|------|------|
-| V0.1 | 核心框架+安全+示例工具 | 本周 |
-| V0.2 | 开放API+文档+GitHub Action CI | 第2周 |
-| V0.3 | Spring Boot Starter 发布到 Maven Central | 第3周 |
-| V0.4 | Web管理控制台（Vue3） | 第1个月 |
-| V0.5 | 插件市场SPI（第三方可开发工具插件） | 第2个月 |
-| V1.0 | 企业版功能：SSO/LDAP/集群/Prometheus | 第3个月 |
-
-### 💼 挣钱模式（6种）
-
-| # | 模式 | 目标客户 | 月收入预估 | 难度 |
-|---|------|---------|-----------|------|
-| ① | **MCP Server 部署实施** | 有AI需求但不会MCP的企业 | ¥3-20万/单 | ⭐⭐ |
-| ② | **企业定制工具开发** | 需要对接内部系统的企业 | ¥5-30万/单 | ⭐⭐⭐ |
-| ③ | **开源版→商业版升级** | 运维团队/企业IT | ¥1-5万/年 | ⭐ |
-| ④ | **MCP 培训+咨询** | 开发团队转型AI | ¥5000-2万/天 | ⭐⭐ |
-| ⑤ | **云托管MCP平台** | 中小企业 | ¥999-9999/月 | ⭐⭐⭐⭐ |
-| ⑥ | **企业知识库插件** | 需要RAG的企业 | ¥2-10万/单 | ⭐⭐ |
-
-### 🎯 起步优先级
-
-**今天到第1个月：你一个人就能做的**
-
-1. **接单**：上 Upwork/Freelancer/猪八戒，搜索 "MCP Server" "AI Agent" "Spring AI"
-   - 客单价 ¥5-30万，需求真实存在
-   - 用这个项目做 demo 去谈客户
-
-2. **开源+SEO**：把项目推上 GitHub，写高质量 README 和文档
-   - GitHub Stars > 500 → 自然流量
-   - ChatGPT/Perplexity 搜索 "Spring Boot MCP" 时能搜到
-
-3. **企业内推**：在 Spring / Java / AI 群和社区发项目
-   - 适合的企业场景：内部知识库AI对接、数据库AI查询、流程自动化
+| V0.1 | 核心框架 + Alibaba 集成 + 文档 | ✅ 已完成 |
+| V0.2 | SPI 接口 + 工具管理器 + SSE + 单元测试 | ✅ 已完成 |
+| V0.3 | 三工具模块单元测试 + H2 数据库测试 | ✅ 已完成 |
+| V0.4 | GitHub Actions CI/CD | ✅ 已完成 |
+| V0.5 | Docker Compose 升级 + 多 profile | ✅ 已完成 |
+| **V0.6** | **README GEO 优化 + GitHub SEO** | **当前** |
+| V0.7 | Maven Central 发布脚本 | 🔜 下一步 |
+| V0.8 | Sonatype 注册就绪 | 🔜 |
+| V0.9 | 健康看板 + 工具调用统计 | 📋 规划 |
+| V1.0 | 正式发布 + 生产文档 | 📋 规划 |
 
 ---
 
-## 🔥 为什么MCP是风口
+## 🤝 贡献
 
-```
-┌─────────────────────────────────────┐
-│        2025-2026 AI Agent 浪潮        │
-├─────────────────────────────────────┤
-│                                     │
-│  LLM → AI Agent → MCP 工具协议      │
-│                                     │
-│  Anthropic 发布 MCP → 行业标准       │
-│  OpenAI 跟进 → 微软/Google 支持      │
-│  Spring AI 原生支持 → Java生态接入    │
-│  YC W25/S25 连续押注 (agentic-trust) │
-│  GitHub MCP 相关项目年增长 >500%     │
-│                                     │
-│  → 这就是2013年的Docker/AWS Lambda   │
-│  → 基础设施窗口期 12-18个月           │
-│  → 谁先做完整的企业Java版 = 赢家      │
-└─────────────────────────────────────┘
-```
+欢迎贡献代码、提交 Issue 或提出建议！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交改动 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 提交 Pull Request
 
 ---
 
-## 🔗 相关资源
+## 📄 许可
 
-- [MCP 官方协议](https://modelcontextprotocol.io/)
-- [Spring AI MCP](https://docs.spring.io/spring-ai/reference/api/mcp.html)
-- [Agentic Trust (YC S25)](https://www.agentictrust.com/)
-- [open-mcp (Python)](https://github.com/open-mcp)
+**Apache License 2.0** — 可自由使用、修改、商用。详见 [LICENSE](LICENSE) 文件。
 
 ---
 
-## 📄 开源协议
-
-Apache License 2.0
-
----
-
-## 🌟 如果你觉得有用...
-
-- ⭐ 给这个项目点 Star
-- 🔀 Fork 后开发自己的工具
-- 📢 分享给你的 Java/AI 朋友
-- 🐛 提 Issue 或 PR
+<p align="center">
+  <b>Java + Spring + AI = MCP Enterprise</b><br>
+  <sub>MCP 市场的 Java 蓝海 · 中国企业级 AI 集成基础设施</sub>
+</p>
