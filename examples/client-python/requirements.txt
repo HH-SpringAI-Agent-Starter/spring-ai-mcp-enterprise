@@ -1,0 +1,4 @@
+# MCP Enterprise Python Client
+# 纯标准库实现，无需额外依赖
+# 如需要更强大的 HTTP 库，可安装:
+# requests>=2.31.0
