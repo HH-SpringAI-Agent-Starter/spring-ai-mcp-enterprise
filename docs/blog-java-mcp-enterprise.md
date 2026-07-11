@@ -97,9 +97,19 @@ mcp:
       scan-packages: com.yourcompany.tools
 ```
 
-### 3.4 与 Spring AI Alibaba 集成
+### 3.4 与 Spring AI Alibaba 集成（🇨🇳 国内首选）
 
-如果你使用阿里云通义千问/DashScope，只需添加配置：
+国内企业使用通义千问 + DashScope，只需添加 `mcp-alibaba` 模块：
+
+```xml
+<dependency>
+    <groupId>com.mcp.enterprise</groupId>
+    <artifactId>mcp-alibaba</artifactId>
+    <version>0.0.2-SNAPSHOT</version>
+</dependency>
+```
+
+配置 application.yml：
 
 ```yaml
 spring:
@@ -112,9 +122,66 @@ spring:
           - url: http://localhost:8081/api/mcp
             headers:
               X-API-Key: ${MCP_API_KEY}
+
+mcp:
+  enterprise:
+    integration:
+      alibaba:
+        enabled: true
+        chat-model: qwen-max
+        auto-detect-cloud: true
 ```
 
-你的 AI Agent 就能通过 MCP 协议调用企业后端系统。
+启动指定 profile：
+
+```bash
+export DASHSCOPE_API_KEY=sk-xxxx
+export MCP_API_KEY=admin-key
+cd mcp-server
+mvn spring-boot:run -Dspring-boot.run.profiles=alibaba
+```
+
+**自动检测阿里云 ECS 环境**、**自动配置 DashScope 客户端**、**集成到 Spring AI ChatClient**。
+
+### 3.5 Spring AI MCP Client 示例（生产推荐）
+
+`mcp-examples/mcp-client-spring-ai` 模块演示了生产级调用方式：
+
+```java
+@SpringBootApplication
+public class McpClientApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(McpClientApplication.class, args);
+    }
+}
+
+@Component
+public class DemoRunner implements CommandLineRunner {
+    @Override
+    public void run(String... args) {
+        // Spring AI 的 ChatClient 自动集成 MCP 工具
+        String result = chatClient.prompt()
+            .user("查询当前服务器信息")
+            .call()
+            .content();
+        // ChatClient 自动发现并调用 MCP Enterprise Server 的工具
+    }
+}
+```
+
+application.yml 配置：
+
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: true
+        endpoints:
+          - url: http://localhost:8081/api/mcp
+            headers:
+              X-API-Key: ${MCP_API_KEY}
+```
 
 ## 四、企业应用场景
 

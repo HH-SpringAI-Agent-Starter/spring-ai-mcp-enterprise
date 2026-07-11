@@ -44,8 +44,10 @@
         <module>mcp-tools/tool-search</module>
         <module>mcp-tools/tool-system</module>
         <module>mcp-monitor</module>
-        <module>mcp-integrations/mcp-alibaba</module>
-        <module>mcp-examples/mcp-client-spring-ai</module>
+        <!-- mcp-alibaba 和 mcp-client-spring-ai 需要 Spring AI Alibaba BOM（spring-milestones 仓库）
+             在 SETTINGS-CENTRAL.xml 配置了仓库后取消注释 -->
+        <!-- <module>mcp-integrations/mcp-alibaba</module> -->
+        <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
     </modules>
 
     <parent>
@@ -83,16 +85,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Spring AI Alibaba BOM: 仅在使用 Alibaba profile 时启用
-                 需在 ~/.m2/settings.xml 中添加仓库或使用阿里云 maven 镜像
-                 <dependency>
-                     <groupId>com.alibaba.cloud.ai</groupId>
-                     <artifactId>spring-ai-alibaba-bom</artifactId>
-                     <version>${spring-ai-alibaba.version}</version>
-                     <type>pom</type>
-                     <scope>import</scope>
-                 </dependency>
-            -->
+            <!-- Spring AI Alibaba BOM: mcp-alibaba 模块自己管理，不需要父 pom 托管 -->
         </dependencies>
     </dependencyManagement>
 
@@ -210,6 +203,22 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- 阿里云 Maven 仓库（Spring AI Alibaba 依赖）-->
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>aliyun-spring-ai</id>
+            <name>Aliyun Spring AI</name>
+            <url>https://maven.aliyun.com/repository/spring</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
 
     <!-- 发布配置：仅用于 mcp-core 和 mcp-spring-boot-starter -->
     <profiles>

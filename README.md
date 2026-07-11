@@ -70,7 +70,11 @@ spring-ai-mcp-enterprise/
 │   └── tool-system/               # 系统命令工具
 ├── mcp-monitor/                   # 监控中心
 │   └── src/main/java/com/mcp/monitor/
-├── examples/                      # 客户端示例
+├── mcp-integrations/              # 云厂商集成
+│   └── mcp-alibaba/               # 🌟 Spring AI Alibaba 原生集成 ⭐
+├── mcp-examples/                  # Spring AI 客户端示例
+│   └── mcp-client-spring-ai/      # 🌟 Spring AI MCP Client 调用示例 ⭐
+├── examples/                      # 基础客户端示例
 │   ├── client-java/               # Java SDK 示例 (纯JDK HttpClient)
 │   ├── client-python/             # Python 客户端示例
 │   └── curl-examples.sh           # curl 调用脚本
@@ -78,6 +82,7 @@ spring-ai-mcp-enterprise/
 │   ├── quickstart.md              # 快速上手指南
 │   ├── architecture.md            # 架构说明
 │   ├── api-docs.md                # API 文档
+│   ├── alibaba-integration-guide.md # 🇨🇳 Spring AI Alibaba 集成指南 ⭐
 │   ├── blog-java-mcp-enterprise.md # 掘金/CSDN 博客稿件
 │   └── market-research-2026-07.md # MCP 市场机会报告
 ├── .github/workflows/             # GitHub Actions CI/CD
@@ -97,12 +102,13 @@ spring-ai-mcp-enterprise/
 
 - JDK 17+
 - Maven 3.8+
+- (可选) Docker 24+
 
 ### 启动服务
 
 ```bash
 cd spring-ai-mcp-enterprise
-mvn clean install -DskipTests
+mvn clean install -DskipTests -pl mcp-core,mcp-spring-boot-starter,mcp-server -am
 cd mcp-server
 mvn spring-boot:run
 ```
@@ -126,6 +132,21 @@ curl http://localhost:8081/api/mcp/tools
 # 3. 查看服务状态
 curl http://localhost:8081/api/mcp/health
 ```
+
+### 🇨🇳 Spring AI Alibaba 集成（快速启动）
+
+```bash
+# 1. 配置阿里云 DashScope API Key
+export DASHSCOPE_API_KEY=sk-xxxxxxxxxxxx
+
+# 2. 使用 alibaba profile 启动
+cd mcp-server
+mvn spring-boot:run -Dspring-boot.run.profiles=alibaba
+
+# 3. 通义千问 Agent 自动通过 MCP 调用企业工具
+```
+
+> 详见 [Spring AI Alibaba 集成指南](docs/alibaba-integration-guide.md)
 
 ---
 
