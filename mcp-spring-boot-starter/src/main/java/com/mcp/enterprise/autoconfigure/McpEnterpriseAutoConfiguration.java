@@ -23,6 +23,9 @@ import java.util.List;
  * - ToolRegistry: 工具注册中心
  * - McpSecurityManager: 安全管理器
  * - McpToolManager: 工具管理器（自动扫描所有 McpToolExecutor Bean）
+ *
+ * ⚠️ 注意：Spring Boot 3.4 fat jar 有 @ConditionalOnAvailableEndpoint bug，
+ * 已移除 actuator endpoint；使用 /api/mcp/health 替代。
  */
 @Configuration
 @EnableConfigurationProperties(McpEnterpriseProperties.class)
@@ -68,11 +71,6 @@ public class McpEnterpriseAutoConfiguration {
             List<McpToolExecutor> executors) {
 
         return new McpToolExecutorRegistrar(toolManager, executors);
-    }
-
-    @Bean
-    public McpEnterpriseEndpoint mcpEnterpriseEndpoint(ToolRegistry registry, McpSecurityManager securityManager) {
-        return new McpEnterpriseEndpoint(registry, securityManager);
     }
 
     @Bean

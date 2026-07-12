@@ -21,16 +21,6 @@ mcp:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
 
-# actuator 注释（Cloud Run 兼容性冲突）
-# management:
-#   endpoints:
-#     web:
-#       exposure:
-#         include: health,info,mcp-enterprise
-#   endpoint:
-#     health:
-#       show-details: always
-
 logging:
   level:
     com.mcp: INFO
