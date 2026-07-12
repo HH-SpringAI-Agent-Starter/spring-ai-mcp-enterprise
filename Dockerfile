@@ -41,7 +41,7 @@ EXPOSE 8081
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:8081/actuator/health || exit 1
+  CMD sh -c 'wget -qO- http://localhost:${PORT:-8080}/ || exit 1'
 
 # 启动
 ENTRYPOINT ["java", "-jar", "app.jar"]

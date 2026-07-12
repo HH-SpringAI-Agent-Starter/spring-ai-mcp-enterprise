@@ -22,11 +22,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- actuator 在 MCPize Cloud Run 环境有 fat jar 冲突，临时注释 -->
-        <!--dependency>
+        <!-- actuator - Cloud Run 健康检查需要 -->
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency-->
+        </dependency>
     </dependencies>
 
     <build>
