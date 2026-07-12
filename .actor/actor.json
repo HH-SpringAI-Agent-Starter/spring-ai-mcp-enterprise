@@ -1,0 +1,27 @@
+{
+  "actorSpecification": 1,
+  "name": "spring-ai-mcp-enterprise",
+  "title": "Spring AI MCP Enterprise Server",
+  "description": "Enterprise-grade MCP Server framework - Java/Spring Boot implementation of Model Context Protocol",
+  "version": "0.0",
+  "buildTag": "latest",
+  "dockerfile": "../Dockerfile",
+  "input": {
+    "title": "MCP Server Configuration",
+    "schemaVersion": 1,
+    "type": "object",
+    "properties": {
+      "port": {
+        "title": "Server Port",
+        "type": "integer",
+        "default": 8080,
+        "description": "MCP Server HTTP port"
+      }
+    },
+    "required": []
+  },
+  "environmentVariables": {
+    "MCP_SERVER_PORT": "8080",
+    "SPRING_PROFILES_ACTIVE": "apify"
+  }
+}
