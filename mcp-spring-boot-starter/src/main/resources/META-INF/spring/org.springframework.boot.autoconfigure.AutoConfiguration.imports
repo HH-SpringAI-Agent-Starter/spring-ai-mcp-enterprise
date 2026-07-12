@@ -1,2 +1,1 @@
-org.springframework.boot.autoconfigure.AutoConfiguration.imports=com.mcp.enterprise.autoconfigure.McpEnterpriseAutoConfiguration
-org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnAvailableEndpoint=
+com.mcp.enterprise.autoconfigure.McpEnterpriseAutoConfiguration
