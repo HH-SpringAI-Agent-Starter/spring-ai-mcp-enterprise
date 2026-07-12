@@ -40,8 +40,8 @@ COPY --from=builder /build/mcp-server/target/*.jar app.jar
 EXPOSE 8081
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD sh -c 'wget -qO- http://localhost:${PORT:-8080}/ || exit 1'
+# 健康检查：Cloud Run 的 TCP probe 端口通就够，不需要 HTTP 200
+# actuator 在 MCPize Cloud Run 有 fat jar 兼容性冲突，不用
 
 # 启动
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -22,11 +22,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- actuator - Cloud Run 健康检查需要 -->
-        <dependency>
+        <!-- actuator 注释：MCPize Cloud Run 环境有 fat jar 兼容性冲突（ConditionalOnAvailableEndpoint= 空值异常）
+             改用内嵌 /health 端点 + TCP probe -->
+        <!--dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
+        </dependency-->
     </dependencies>
 
     <build>
