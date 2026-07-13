@@ -1,6 +1,6 @@
 # 📊 MCP Enterprise Server — 市场机会报告
 
-> 更新日期：2026-07-11
+> 更新日期：2026-07-13
 
 ---
 
@@ -16,6 +16,8 @@
 | **AI Agent 招聘需求爆发** | 2026年Q2 | 企业 AI Agent 落地需求带动 MCP 框架需求 |
 | **ZCode 首发支持 MCP 协议** | 2026-06 | 国产 IDE 原生支持 MCP，生态扩展 |
 | **Spring AI Alibaba MCP 示例频发** | 2026-06/07 | 国内企业数据治理 + AI Agent 落地案例涌现 |
+| **MCP Server 搭建教程爆发** | 2026-07-08/10 | CSDN/博客园涌现大量 MCP 实操教程（全 Python），Java 版极度稀缺 |
+| **Spring Boot 4.1 GA + Spring AI 2.0 GA** | 2026-06-29 | JDK17→21，MCP 成为 Spring 生态标准组件 |
 
 ### 1.2 市场热度判断
 
@@ -123,21 +125,21 @@ MCP 市场生命周期（2026年7月定位）
 | 版本 | 新增内容 | 预计完成 | 挣钱相关 |
 |------|---------|---------|---------|
 | **V0.1** | 核心框架+安全+示例工具 | ✅ 已完成 | - |
-| **V0.2** | ✅ Spring AI Alibaba 集成 | 🆕 今天(07-11) | 🇨🇳 国内企业必用 |
-| **V0.2** | ✅ MCP Client 示例 | 🆕 今天(07-11) | 📚 客户 Demo |
-| **V0.3** | Maven Central 发布 | 下周末 | 🔓 开源影响力 |
-| **V0.4** | Web 管理控制台 (Vue3) | 第4周 | 🖥️ 企业可视化 |
-| **V0.5** | 插件市场 SPI + 工具市场 | 第6周 | 🏪 第三方生态 |
-| **V0.6** | 企业版 SSO/LDAP/集群 | 第8周 | 💼 商业版基础 |
+| **V0.2** | ✅ Spring AI Alibaba 集成 | ✅ 07-11 | 🇨🇳 国内企业必用 |
+| **V0.3** | GitHub SEO + Topics + Public | ✅ 07-13 今晚 | 🌟 开源曝光度 |
+| **V0.4** | Maven Central 发布 | 下周末 | 🔓 开源影响力 |
+| **V0.5** | Web 管理控制台 (Vue3) | 第4周 | 🖥️ 企业可视化 |
+| **V0.6** | 插件市场 SPI + 工具市场 | 第6周 | 🏪 第三方生态 |
+| **V0.7** | 企业版 SSO/LDAP/集群 | 第8周 | 💼 商业版基础 |
 | **V1.0** | 生产就绪 | 第12周 | 🚀 正式发布 |
 
 ---
 
 ## 五、下一步行动清单
 
-- [ ] **本周**：V0.2 推送到 GitHub，更新 README
-- [ ] **本周**：docs/market-research-2026-07.md 更新
-- [ ] **本周**：在掘金转发博客稿件
+- [x] **07-11**：V0.2 Spring AI Alibaba 集成 + Client 示例 + CI/CD + Docker
+- [x] **07-13（今晚）**：仓库公开 + GitHub SEO + Topics + 遗留文件（LICENSE/CONTRIBUTING/ISSUE_TEMPLATE）
+- [ ] **本周**：在掘金/CSDN 转发博客稿件
 - [ ] **下周**：在 spring-projects 相关 Issue 留言推广
 - [ ] **下周**：注册 Maven Central 账号准备发布
 - [ ] **下周**：在 V2EX / 开源中国 / OSChina 发帖
