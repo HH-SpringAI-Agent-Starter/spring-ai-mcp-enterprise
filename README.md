@@ -6,7 +6,7 @@
 [![Build](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml/badge.svg)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)](https://spring.io/projects/spring-boot)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise?style=social)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise)
 
 ---
@@ -22,6 +22,7 @@
 - [路线图](#-路线图)
 - [贡献](#-贡献)
 - [许可](#-许可)
+- [贡献](#-贡献-1)
 
 ---
 
@@ -254,6 +255,12 @@ docker compose --profile full up -d
 ## 📄 许可
 
 **Apache License 2.0** — 可自由使用、修改、商用。详见 [LICENSE](LICENSE) 文件。
+
+## 🤝 贡献
+
+欢迎贡献！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+提交 Issue 请使用 [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) 或 [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) 模板。
 
 ---
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 文档
+    url: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/tree/main/docs
+    about: 查看文档和快速上手指南
+  - name: 💬 Discussions
+    url: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/discussions
+    about: 使用疑问和最佳实践讨论
