@@ -232,8 +232,9 @@ docker compose --profile full up -d
 | V0.3 | 三工具模块单元测试 + H2 数据库测试 | ✅ 已完成 |
 | V0.4 | GitHub Actions CI/CD | ✅ 已完成 |
 | V0.5 | Docker Compose 升级 + 多 profile | ✅ 已完成 |
-| **V0.6** | **README GEO 优化 + GitHub SEO** | **当前** |
-| V0.7 | Maven Central 发布脚本 | 🔜 下一步 |
+| **V0.6** | **GitHub SEO + 仓库公开 + Topics** | **✅ 已完成** |
+| **V0.7** | **Full Build Profile + 市场日报更新** | **✅ 已完成** |
+| V0.8 | Maven Central 发布脚本 | 🔜 下一步 |
 | V0.8 | Sonatype 注册就绪 | 🔜 |
 | V0.9 | 健康看板 + 工具调用统计 | 📋 规划 |
 | V1.0 | 正式发布 + 生产文档 | 📋 规划 |

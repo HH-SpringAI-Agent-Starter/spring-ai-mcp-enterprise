@@ -44,8 +44,8 @@
         <module>mcp-tools/tool-search</module>
         <module>mcp-tools/tool-system</module>
         <module>mcp-monitor</module>
-        <!-- mcp-alibaba 和 mcp-client-spring-ai 需要 Spring AI Alibaba BOM（spring-milestones 仓库）
-             在 SETTINGS-CENTRAL.xml 配置了仓库后取消注释 -->
+        <!-- mcp-alibaba 和 mcp-client-spring-ai 默认跳过（需要 spring-milestones 仓库）
+             使用 -Pfull 激活: mvn clean install -Pfull -->
         <!-- <module>mcp-integrations/mcp-alibaba</module> -->
         <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
     </modules>
@@ -269,6 +269,26 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- ===== Full Build: 包含 Alibaba 集成 + Spring AI Client 示例 ===== -->
+        <profile>
+            <id>full</id>
+            <modules>
+                <module>mcp-integrations/mcp-alibaba</module>
+                <module>mcp-examples/mcp-client-spring-ai</module>
+            </modules>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
