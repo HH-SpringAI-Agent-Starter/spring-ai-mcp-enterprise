@@ -1,0 +1,124 @@
+# ===========================================
+# MCP Enterprise — OAuth2/SSO 配置文件示例
+# ===========================================
+# 激活方式：
+#   1. application.yml 中设置 spring.profiles.active=auth-oauth2
+#   2. 或启动时：--spring.profiles.active=auth-oauth2
+#
+# 支持的 IdP：
+#   - Keycloak（自建）
+#   - Okta（云）
+#   - Azure AD / Entra ID（微软）
+#   - Auth0（云）
+# ===========================================
+
+# ===== 1. MCP 企业认证 =====
+mcp:
+  auth:
+    # 认证模式: none | api-key | oauth2
+    mode: oauth2
+
+    # JWT 会话令牌密钥（生产环境必填！至少 32 字符）
+    jwt-secret: "change-me-to-a-strong-secret-at-least-32-chars-long!!"
+
+    # 会话令牌有效期（分钟）
+    jwt-expiration-minutes: 60
+
+    # OAuth2 通用配置
+    oauth2:
+      issuer-uri: http://localhost:8080/realms/mcp-enterprise
+      client-id: mcp-server
+      client-secret: your-client-secret
+      scopes:
+        - openid
+        - profile
+        - email
+        - roles
+
+    # 身份提供商列表（支持多 IdP）
+    identity-providers:
+      - name: keycloak
+        display-name: Keycloak (自建)
+        issuer-uri: http://localhost:8080/realms/mcp-enterprise
+      - name: okta
+        display-name: Okta
+        issuer-uri: https://dev-xxxxxx.okta.com/oauth2/default
+      - name: azure-ad
+        display-name: Azure AD / Entra ID
+        issuer-uri: https://login.microsoftonline.com/your-tenant-id/v2.0
+
+    # RBAC 角色映射
+    role-mapping:
+      admin-roles:
+        - admin
+        - mcp-admin
+        - ROLE_ADMIN
+      user-roles:
+        - user
+        - mcp-user
+        - ROLE_USER
+      read-only-roles:
+        - viewer
+        - readonly
+        - ROLE_VIEWER
+
+# ===== 2. Spring Security OAuth2 =====
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          mcp:
+            provider: keycloak
+            client-id: mcp-server
+            client-secret: your-client-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/mcp"
+            scope:
+              - openid
+              - profile
+              - email
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8080/realms/mcp-enterprise
+            user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/mcp-enterprise
+
+---
+# ===== Keycloak 本地开发配置 =====
+spring:
+  config:
+    activate:
+      on-profile: keycloak-dev
+
+mcp:
+  auth:
+    mode: oauth2
+    jwt-secret: "dev-secret-key-for-local-testing-only-change-in-prod!!!"
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          mcp:
+            client-id: mcp-server-dev
+            client-secret: mcp-server-dev-secret
+            provider: keycloak
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8080/realms/mcp-enterprise
+
+---
+# ===== API Key 兼容模式（默认） =====
+spring:
+  config:
+    activate:
+      on-profile: auth-apikey
+
+mcp:
+  auth:
+    mode: api-key
+    session-tokens: true

@@ -44,6 +44,7 @@
         <module>mcp-tools/tool-search</module>
         <module>mcp-tools/tool-system</module>
         <module>mcp-monitor</module>
+        <module>mcp-auth</module>
         <!-- mcp-alibaba 和 mcp-client-spring-ai 默认跳过（需要 spring-milestones 仓库）
              使用 -Pfull 激活: mvn clean install -Pfull -->
         <!-- <module>mcp-integrations/mcp-alibaba</module> -->

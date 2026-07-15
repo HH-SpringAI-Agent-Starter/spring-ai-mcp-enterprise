@@ -101,18 +101,51 @@ mcp:
 docker-compose up -d
 ```
 
-### 查看管理端点
+## 六、企业认证（mcp-auth 模块）
+
+MCP Enterprise 内置企业级 OAuth2/SSO 认证，符合 MCP Enterprise Auth 规范（2026-07-13 稳定版）。
+
+### 切换认证模式
+
+```yaml
+# application.yml
+mcp:
+  auth:
+    mode: oauth2    # none | api-key | oauth2
+    jwt-secret: "your-256-bit-secret"
+    oauth2:
+      issuer-uri: http://localhost:8080/realms/mcp-enterprise
+      client-id: mcp-server
+```
+
+### 三种模式快速切换
 
 ```bash
-# Actuator 管理
-curl http://localhost:8081/actuator/mcp-enterprise
+# API Key 模式（默认，向后兼容）
+java -jar mcp-server.jar
 
-# 工具列表
-curl http://localhost:8081/actuator/mcp-enterprise/tools
+# OAuth2/SSO 企业认证
+java -jar mcp-server.jar --spring.profiles.active=auth-oauth2
 
-# 审计日志
-curl http://localhost:8081/actuator/mcp-enterprise/audit
+# 无认证（仅开发环境）
+java -jar mcp-server.jar --mcp.auth.mode=none
 ```
+
+### 交换 API Key 为会话令牌
+
+```bash
+curl -X POST http://localhost:8081/api/auth/exchange \
+  -H "X-API-Key: $MCP_API_KEY"
+# 返回 JWT 令牌，后续可用 Authorization: Bearer <token>
+```
+
+### 支持的 IdP
+
+- **Keycloak**（开源，推荐自建）
+- **Okta**（云 SaaS）
+- **Azure AD / Entra ID**（微软生态）
+- **Auth0**（云 SaaS）
+- **自定义 OIDC 提供商**
 
 ---
 

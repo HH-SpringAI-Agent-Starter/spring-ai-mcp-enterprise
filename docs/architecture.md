@@ -111,9 +111,70 @@ Client → POST /api/mcp/tools/{name}/invoke
 
 ### 3. 安全层次
 
+| **mcp-auth** | 🔐 企业认证层：OAuth2/SSO/JWT + API Key 兼容 + 多 IdP 支持 | spring-security + oauth2-client |
+
+> 新增！mcp-auth 模块支持 MCP Enterprise Auth 规范（2026-07-13 稳定版）
+
+---
+
+## 企业认证架构（mcp-auth）
+
+```
+                    ┌──────────────────────┐
+                    │    Identity Provider   │
+                    │  Keycloak/Okta/Azure AD│
+                    └──────────┬───────────┘
+                               │ OIDC / OAuth2
+                               ▼
+              ┌──────────────────────────┐
+              │     mcp-auth 模块        │
+              │                          │
+              │  ┌────────────────────┐  │
+              │  │ OAuth2 Login/SSO  │  │  ← 用户通过浏览器 SSO 登录
+              │  └────────┬───────────┘  │
+              │           ▼              │
+              │  ┌────────────────────┐  │
+              │  │ JWT Token Provider │  │  ← 生成/验证 MCP 会话令牌
+              │  └────────┬───────────┘  │
+              │           ▼              │
+              │  ┌────────────────────┐  │
+              │  │ API Key 兼容层    │  │  ← 支持旧的 X-API-Key 请求
+              │  └────────┬───────────┘  │
+              │           ▼              │
+              │  ┌────────────────────┐  │
+              │  │ RBAC 角色映射     │  │  ← IdP 角色 → MCP 角色
+              │  └────────────────────┘  │
+              └──────────────────────────┘
+                         │
+                         ▼ MCP 请求（已认证）
+              ┌──────────────────────────┐
+              │     mcp-core 安全层      │
+              │  RateLimit + 审计 + IP   │
+              └──────────────────────────┘
+```
+
+### 三种认证模式
+
+| 模式 | 使用场景 | 配置 |
+|------|---------|------|
+| `none` | 开发/测试 | `mcp.auth.mode=none` |
+| `api-key` | 默认/向后兼容 | `mcp.auth.mode=api-key`（默认） |
+| `oauth2` | 企业 SSO 生产环境 | `mcp.auth.mode=oauth2` + 配置 IdP |
+
+### 支持的 IdP
+
+| 身份提供商 | 类型 | 配置示例 |
+|-----------|------|---------|
+| Keycloak | 开源自建 | `application-auth.yml#keycloak-dev` |
+| Okta | 云 SaaS | `issuer-uri: https://dev-xxxxxx.okta.com` |
+| Azure AD | 微软云 | `issuer-uri: https://login.microsoftonline.com/{tenant}/v2.0` |
+| Auth0 | 云 SaaS | `issuer-uri: https://your-tenant.auth0.com` |
+
 | 层次 | 组件 | 可配置 |
 |------|------|--------|
-| L1 传输 | API Key header 校验 | mcp.enterprise.security.api-key-enabled |
+| L0 身份 | OAuth2/OIDC 企业 SSO | mcp.auth.mode=oauth2 |
+| L0 令牌 | JWT 会话令牌 | mcp.auth.jwt-secret |
+| L1 传输 | API Key / Bearer Token | mcp.auth.mode=api-key / oauth2 |
 | L2 鉴权 | RBAC 角色权限 | createApiKey 时指定 roles |
 | L3 限流 | Token Bucket 频率限制 | ToolDefinition.rateLimitPerSecond |
 | L4 审计 | 全调用链路记录 | mcp.enterprise.security.audit-log-enabled |

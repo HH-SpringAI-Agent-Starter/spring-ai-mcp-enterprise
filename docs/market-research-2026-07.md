@@ -136,7 +136,8 @@ MCP 市场生命周期（2026年7月14日更新）
 | **V0.5** | Maven Central 发布 | 下周末 | 🔓 开源影响力 |
 | **V0.5** | Web 管理控制台 (Vue3) | 第4周 | 🖥️ 企业可视化 |
 | **V0.6** | 插件市场 SPI + 工具市场 | 第6周 | 🏪 第三方生态 |
-| **V0.7** | 企业版 SSO/LDAP/集群 | 第8周 | 💼 商业版基础 |
+| **V0.7** | ✅ 企业版 SSO/OAuth2(mcp-auth) | ✅ 07-15 | 🔐 MCP Enterprise Auth 支持 |
+| **V0.8** | 企业版 LDAP/集群 | 第7周 | 💼 商业版基础 |
 | **V1.0** | 生产就绪 | 第12周 | 🚀 正式发布 |
 
 ---
@@ -146,6 +147,7 @@ MCP 市场生命周期（2026年7月14日更新）
 - [x] **07-11**：V0.2 Spring AI Alibaba 集成 + Client 示例 + CI/CD + Docker
 - [x] **07-13**：仓库公开 + GitHub SEO + Topics + 遗留文件（LICENSE/CONTRIBUTING/ISSUE_TEMPLATE）
 - [x] **07-14**：POM Full Build Profile + 市场日报更新 + Git Push
+- [x] **07-15**：V0.8 mcp-auth OAuth2/SSO 企业认证模块 + Node.js 客户端示例 + Git Push
 - [ ] **本周**：在掘金/CSDN 转发博客稿件
 - [ ] **下周**：在 spring-projects 相关 Issue 留言推广
 - [ ] **下周**：注册 Maven Central 账号准备发布
