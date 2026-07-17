@@ -8,6 +8,9 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise?style=social)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise)
+[![中文](https://img.shields.io/badge/🇨🇳-中文文档-brightgreen)](README.zh-CN.md)
+
+> **🇨🇳 [中文版 README](README.zh-CN.md)** — 更适合中国 Java 开发者阅读
 
 ---
 
@@ -18,6 +21,7 @@
 - [快速开始](#-快速开始)
 - [架构](#-架构)
 - [与竞品对比](#-与竞品对比)
+- [MCP 2026-07-28](#-mcp-2026-07-28-规范)
 - [FAQ](#-faq)
 - [路线图](#-路线图)
 - [贡献](#-贡献)
@@ -182,7 +186,35 @@ docker compose --profile full up -d
 | **CI/CD** | ✅ GitHub Actions (多JDK + Docker) | ❌ 无自带 | ❌ 无自带 |
 | **Maven Central** | ✅ 发布就绪 | ✅ PyPI | ✅ npm |
 | **单元测试** | ✅ 23+ 测试，H2 嵌入式数据库 | 视项目而定 | 视项目而定 |
-| **中文文档** | ✅ 完整中文文档 | ❌ 英文为主 | ❌ 英文为主 |
+| **中文文档** | ✅ [README.zh-CN.md](README.zh-CN.md) 完整中文文档 | ❌ 英文为主 | ❌ 英文为主 |
+
+---
+
+## 📅 MCP 2026-07-28 规范
+
+### 什么是 MCP 2026-07-28？
+
+2026 年 7 月 17 日，MCP 发布了 **史上最大规模修订的规范候选版**（2026-07-28 候选版），7 月 28 日正式发布。核心变化：
+
+- 🏭 **无状态核心** — 支持无状态 HTTP 架构，Kubernetes / Cloud Run 弹性伸缩
+- 🔍 **能力发现** — Server 自动广播能力，Client 动态发现
+- 🔒 **企业授权加固** — OAuth 2.0 / Identity Provider 统一管控
+- 🧩 **Extensions** — 第三方扩展协议，MCP 成为可扩展的企业应用平台
+
+### MCP Enterprise 已全面覆盖企业级需求
+
+| 2026-07-28 特性 | MCP Enterprise 支持 | 实现模块 |
+|-----------------|---------------------|---------|
+| 无状态核心 | ✅ 已支持 | mcp-core McpSseEndpoint |
+| 能力发现 | ✅ 已支持 | mcp-core ToolRegistry |
+| RBAC 权限 | ✅ 已支持 | mcp-core McpSecurityManager |
+| 企业授权 (OAuth2/SSO) | ✅ 已支持 | mcp-auth 模块 |
+| 审计日志 | ✅ 已支持 | mcp-monitor McpAuditLogger |
+| 速率限制 | ✅ 已支持 | mcp-core RateLimiter |
+| Prometheus 指标 | ✅ 已支持 | mcp-monitor McpMetricsCollector |
+| Tools 无状态 REST | ✅ 已支持 | mcp-core McpToolManager |
+
+> V0.11（下周）将完成 2026-07-28 规范全面适配。
 
 ---
 
