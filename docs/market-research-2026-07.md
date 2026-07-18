@@ -165,3 +165,92 @@ MCP 市场生命周期（2026年7月14日更新）
 - [ ] **下周**：在 V2EX / 开源中国 / OSChina 发帖
 - [ ] **本周**：在 Upwork 开项目账号，搜索 MCP + Spring AI 项目
 - [ ] **第3周**：写 Spring AI Alibaba MCP 集成实战教程（视频/文章）
+
+---
+
+## 📈 2026-07-18 更新：MCP 生态加速 & 2026-07-28 规范发布在即
+
+### 🔥 重大事件：MCP 2026-07-28 候选版发布（7月17日）
+
+MCP 官方发布了协议推出以来**规模最大的修订候选版**，7 月 28 日正式发布。
+
+**核心变化（对 Java 框架的影响）：**
+
+| 变化 | 说明 | MCP Enterprise 应对 |
+|------|------|-------------------|
+| 🏭 **无状态核心** | 支持无状态 HTTP 架构，K8s 弹性伸缩 | ✅ 已开发 McpStatelessEndpoint |
+| 🔍 **能力发现** | Server 自动广播能力，Client 动态发现 | ✅ 已支持 ToolRegistry |
+| 🔒 **授权加固** | OAuth 2.0 / IDP 统一授权 | ✅ 已支持 mcp-auth OAuth2 |
+| 🧩 **Extensions** | 第三方扩展协议 | 📋 规划中 |
+| 📦 **Tasks** | 异步任务管理 | 📋 规划中 |
+| 📱 **MCP Apps** | MCP 应用商店概念 | 📋 未来 |
+| 🔗 **链路追踪** | Trace ID 端到端追踪 | ✅ 已支持（_traceId 字段） |
+| 💾 **缓存支持** | ETag + Cache-Control | ✅ 已支持 |
+| 📐 **完整 JSON Schema** | inputSchema 完整规范 | ✅ 已支持 |
+
+### 🏢 企业级落地信号
+
+1. **MCP 企业授权层正式上线**（7月13日）
+   - Anthropic、Microsoft 客户端率先支持
+   - Okta 成为首家身份提供商
+   - 零接触授权：一次登录 -> 所有已授权服务器
+   - MCP Enterprise mcp-auth 模块已原生支持 OAuth2/JWT/SSO
+
+2. **AWS 开源的 MCP Servers**（awslabs/mcp）
+   - 1668 commits，AWS 官方维护
+   - 覆盖 S3/EC2/Lambda/DynamoDB 等服务
+   - 表明科技巨头全面拥抱 MCP 协议
+   - **对 Java 开发者**：AWS SDK for Java 2.x 可直接集成
+
+3. **企查查 MCP 实践**
+   - 企业数据基座：从 API 到 Agent-Native
+   - 国内标杆案例，验证了 Java MCP Server 在企业数据场景的可行性
+
+4. **Grafana UI MCP Server**（7月16日）
+   - 提供 Grafana UI 组件/设计Token/Documentation 访问
+   - 证明 MCP 正在渗透开发者工具生态
+
+### 📊 竞争对手动态
+
+| 竞品 | 语言 | Star | 特点 | 不足 |
+|------|------|------|------|------|
+| AWS MCP Servers | Python/TS | 高 | AWS 官方，功能全面 | 只针对 AWS 服务 |
+| Grafana UI MCP | TypeScript | 中 | Grafana 生态 | 非通用框架 |
+| FastAPI MCP | Python | 高 | FastAPI 集成 | 无企业安全 |
+| **MCP Enterprise** | **Java** | **低(新建)** | **企业安全+Spring AI** | **需要社区增长** |
+
+### 🎯 市场机会精确判断
+
+**独家洞察：**
+- MCP 2026-07-28 规范将大幅降低企业部署门槛（无状态、授权标准化、链路追踪）
+- 目前**没有**任何 Java 开源项目在做 MCP 2026-07-28 适配
+- AWS/Grafana 等巨头入局 = 市场教育成本由他们承担
+- Spring AI Alibaba 生态在国内有天然优势
+- 当前的竞争对手不在同一个维度（Python/JS 框架 vs Java 企业框架）
+
+**建议行动：**
+1. 在 7 月 28 日前完成 MCP 2026-07-28 规范完全适配
+2. 发布 V0.11 版本，标注 "2026-07-28 Compatible"
+3. 在 Hacker News / 掘金 / CSDN / V2EX 同步发布
+4. 联系 Spring AI 官方仓库和 Spring AI Alibaba 仓库推荐
+
+### 📅 关键时间线
+
+```
+7月13日 -- MCP 企业授权层上线（目前已稳定）
+7月17日 -- 2026-07-28 候选版发布
+7月18日 -- 🔴 现在：MCP Enterprise 加速适配
+7月22日 -- V0.11 发布目标
+7月25日 -- 最终版调试
+7月28日 -- 🔥 MCP 2026-07-28 正式发布 + MCP Enterprise V0.11 同步发布
+```
+
+### 📢 SEO 关键词扩展
+
+新增 SEO 关键词：
+- "Java MCP Server 2026-07-28"
+- "MCP 无状态核心 Java 实现"
+- "Spring AI Alibaba MCP 企业部署"
+- "MCP OAuth2 授权 Java"
+- "Kubernetes MCP Server 部署"
+- "区块链上 MCP Server 中国"

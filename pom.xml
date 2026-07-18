@@ -43,6 +43,8 @@
         <module>mcp-tools/tool-database</module>
         <module>mcp-tools/tool-search</module>
         <module>mcp-tools/tool-system</module>
+        <module>mcp-tools/tool-weather</module>
+        <module>mcp-tools/tool-calculator</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
         <!-- mcp-alibaba 和 mcp-client-spring-ai 默认跳过（需要 spring-milestones 仓库）

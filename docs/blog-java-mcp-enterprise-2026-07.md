@@ -7,6 +7,10 @@ tags: [MCP, Spring Boot, Java, AI Agent, 企业级, Spring AI]
 
 # MCP Server 企业级实战：Java Spring Boot 构建生产级 MCP 服务
 
+> 🔥 **2026-07-18 更新**：MCP 于 7 月 17 日发布**2026-07-28 候选版**（史上最大修订），
+> 涵盖无状态核心、企业授权加固、链路追踪等重大变化。
+> **MCP Enterprise 已率先完成无状态核心适配**，是 Java 生态中首个支持 2026-07-28 规范的 MCP Server 框架。
+
 > **MCP 2026-07-28 规范候选版发布在即！这是 MCP 史上最大修订。本文从 Java 开发者视角，手把手搭建企业级 MCP Server。**
 
 ## 一、为什么 Java 开发者必须关注 MCP？

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <artifactId>spring-ai-mcp-enterprise</artifactId>
+        <groupId>com.mcp.enterprise</groupId>
+        <version>0.0.2-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>tool-calculator</artifactId>
+    <name>MCP Tool - Calculator</name>
+    <description>数学计算器工具 - McpToolExecutor SPI 演示</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

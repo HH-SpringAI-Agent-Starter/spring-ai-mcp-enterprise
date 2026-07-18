@@ -1,8 +1,15 @@
 target/
+build/
+dist/
 *.class
 *.jar
 *.war
+*.nar
+*.zip
+*.tar.gz
+*.rar
 *.log
+*.log.gz
 .idea/
 *.iml
 .settings/
@@ -15,3 +22,33 @@ logs/
 **/dist/
 **/.DS_Store
 **/Thumbs.db
+*.swp
+*.swo
+*~
+.~lock.*
+# Env files
+.env
+.env.local
+.env.*.local
+# IDE
+.apt_generated*
+.factorypath
+.springBeans
+# OS
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# Docker
+docker-data/
+# Secret files
+**/secrets/
+**/*-secret.*
+# Temp
+*.tmp
+*.temp
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+# Tool generated
+**/generated-sources/
+**/generated-test-sources/

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-server-config
+  namespace: mcp-enterprise
+  labels:
+    app.kubernetes.io/name: mcp-enterprise
+    app.kubernetes.io/component: server
+data:
+  application.yml: |
+    server:
+      port: 8081
+    spring:
+      application:
+        name: mcp-enterprise
+    mcp:
+      security:
+        enabled: true
+        ip-whitelist: "0.0.0.0/0"
+      tools:
+        database:
+          enabled: false
+        search:
+          enabled: true
+        system:
+          enabled: true
+        weather:
+          enabled: true
+        calculator:
+          enabled: true
+      monitor:
+        metrics:
+          enabled: true
+        audit:
+          enabled: true
+  application-auth.yml: |
+    mcp:
+      auth:
+        jwt-secret: "${MCP_JWT_SECRET}"
+        enabled: true

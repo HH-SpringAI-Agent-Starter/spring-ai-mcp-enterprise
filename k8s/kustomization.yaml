@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: mcp-enterprise
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+
+commonLabels:
+  app.kubernetes.io/name: mcp-enterprise
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: ghcr.io/hh-springai-agent-starter/spring-ai-mcp-enterprise
+    newTag: 0.0.2

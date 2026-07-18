@@ -144,13 +144,13 @@ public class McpAuthController {
             return Map.of("valid", false, "error", "令牌无效或已过期");
         }
 
-        return Map.of(
-                "valid", true,
-                "subject", result.subject(),
-                "roles", result.roles(),
-                "authMethod", result.authMethod(),
-                "expiresAt", result.claims() != null ? result.claims().getExpiration() : null
-        );
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("valid", true);
+        response.put("subject", result.subject());
+        response.put("roles", result.roles());
+        response.put("authMethod", result.authMethod() != null ? result.authMethod() : "self-signed");
+        response.put("expiresAt", result.claims() != null ? result.claims().getExpiration() : null);
+        return response;
     }
 
     /**
