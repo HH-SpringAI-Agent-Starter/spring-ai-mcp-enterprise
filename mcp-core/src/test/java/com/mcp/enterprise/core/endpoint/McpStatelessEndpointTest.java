@@ -90,10 +90,18 @@ class McpStatelessEndpointTest {
         assertNotNull(result);
         assertEquals("2026-07-28", result.get("protocolVersion"));
 
-        // 验证新增字段
+        // 验证新增字段（W3C Trace Context + 能力发现）
         assertNotNull(result.get("caching"));
         assertNotNull(result.get("tracing"));
-        assertEquals("X-MCP-Trace-Id", ((Map<String, Object>) result.get("tracing")).get("traceIdHeader"));
+        Map<String, Object> tracing = (Map<String, Object>) result.get("tracing");
+        assertEquals("traceparent", tracing.get("traceParentHeader"));
+        assertEquals("tracestate", tracing.get("traceStateHeader"));
+
+        // 🆕 验证新特性
+        assertNotNull(result.get("transport"));
+        assertTrue((Boolean) ((Map<String, Object>) result.get("transport")).get("stateless"));
+        assertNotNull(result.get("schema"));
+        assertEquals("2020-12", ((Map<String, Object>) result.get("schema")).get("jsonSchemaVersion"));
     }
 
     @Test
@@ -330,7 +338,7 @@ class McpStatelessEndpointTest {
         java.util.List<Map<String, Object>> tools = (java.util.List<Map<String, Object>>) result.get("tools");
 
         Map<String, Object> schema = (Map<String, Object>) tools.get(0).get("inputSchema");
-        assertEquals("http://json-schema.org/draft-07/schema#", schema.get("$schema"));
+        assertEquals("https://json-schema.org/draft/2020-12/schema", schema.get("$schema"));
         assertEquals("object", schema.get("type"));
     }
 }

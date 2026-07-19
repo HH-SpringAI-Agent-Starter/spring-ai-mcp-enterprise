@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/specification/main/schema/2026-07-28/server.schema.json",
+  "name": "Spring-AI-MCP-Enterprise",
+  "version": "0.11.0",
+  "description": "Enterprise-grade MCP Server Framework for Java/Spring Boot — RBAC, OAuth2, Rate Limiter, Audit Log, Prometheus, 无状态核心 2026-07-28 全面适配",
+  "vendor": "HH-SpringAI-Agent-Starter",
+  "homepage": "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise",
+  "license": "Apache-2.0",
+  "runtime": "java",
+  "protocolVersion": "2026-07-28",
+  "supportedProtocolVersions": ["2026-07-28", "2025-03-26"],
+  "capabilities": {
+    "tools": {
+      "listChanged": true,
+      "supportsPagination": true
+    },
+    "resources": {
+      "subscribe": false,
+      "listChanged": false
+    },
+    "prompts": {
+      "listChanged": false
+    },
+    "logging": {},
+    "experimental": {
+      "stateless": true,
+      "caching": true,
+      "tracing": true,
+      "tasks": true,
+      "extensions": true
+    }
+  },
+  "transport": {
+    "type": "streamable-http",
+    "url": "http://localhost:8080/api/mcp/message",
+    "sseEndpoint": "http://localhost:8080/api/mcp/sse"
+  },
+  "authentication": {
+    "types": ["bearer", "api-key", "oauth2"],
+    "oauth2": {
+      "enabled": true,
+      "providers": ["google", "github", "custom-sso"]
+    }
+  },
+  "security": {
+    "rbac": true,
+    "rateLimiting": true,
+    "auditLog": true,
+    "ipWhitelist": true,
+    "sqlInjectionProtection": true
+  },
+  "monitoring": {
+    "prometheus": true,
+    "healthEndpoint": "/actuator/health",
+    "metricsEndpoint": "/actuator/prometheus"
+  },
+  "tags": ["java", "spring-boot", "enterprise", "ai-agent", "rba", "oauth2", "prometheus", "stateless"],
+  "repository": "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise",
+  "documentation": "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/tree/main/docs",
+  "icon": "https://raw.githubusercontent.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/main/docs/logo.png"
+}

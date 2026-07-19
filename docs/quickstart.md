@@ -74,7 +74,7 @@ curl -X POST http://localhost:8081/api/mcp/tools/<tool-name>/invoke \
 <dependency>
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>mcp-spring-boot-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
 </dependency>
 ```
 

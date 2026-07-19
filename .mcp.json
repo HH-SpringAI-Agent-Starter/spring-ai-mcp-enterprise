@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "spring-ai-mcp-enterprise": {
+      "type": "streamable-http",
+      "url": "http://localhost:8080/api/mcp/message",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "description": "Enterprise MCP Server — Database, Search, System tools with RBAC security"
+    }
+  }
+}

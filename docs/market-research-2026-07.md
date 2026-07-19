@@ -287,13 +287,33 @@ MCP 官方发布了协议推出以来**规模最大的修订候选版**，7 月 
 ### 📅 关键时间线
 
 ```
-7月13日 -- MCP 企业授权层上线（目前已稳定）
-7月17日 -- 2026-07-28 候选版发布
-7月18日 -- 🔴 现在：MCP Enterprise 加速适配
-7月22日 -- V0.11 发布目标
-7月25日 -- 最终版调试
-7月28日 -- 🔥 MCP 2026-07-28 正式发布 + MCP Enterprise V0.11 同步发布
+7月13日 -- ✅ MCP 企业授权层上线（已稳定）
+7月17日 -- ✅ 2026-07-28 候选版发布
+7月18日 -- ✅ V0.11 核心适配完成（98%）
+7月19日 -- ✅ V0.11 全面完成：无状态核心 + 能力发现 + W3C Trace Context + JSON Schema 2020-12 + Extensions + Tasks
+7月22日 -- 📋 V0.11 Release Notes + Marketplace 提交
+7月25日 -- 📋 博客最终版 + 社区营销准备
+7月28日 -- 🔥 MCP 2026-07-28 正式发布 + MCP Enterprise V0.11 同步发布 + 中文社区三连发
 ```
+
+### 🔥 V0.11 适配完成报告（2026-07-19）
+
+**8 项中 7 项已完成（87.5%），仅 MCP Apps 留待 V0.12。**
+
+| # | 特性 | 状态 | 文件 |
+|---|------|------|------|
+| 1 | 无状态核心 | ✅ | McpStatelessEndpoint.java |
+| 2 | 能力发现（tools/discover + server/discover） | ✅ | 新增 buildToolDiscovery/handleServerDiscover |
+| 3 | JSON Schema 2020-12 | ✅ | 全局升级 |
+| 4 | W3C Trace Context（traceparent/tracestate） | ✅ | 新增常量 + handleStatelessMessage 追踪 |
+| 5 | Extensions | ✅ | 能力声明 mcp-enterprise / custom 命名空间 |
+| 6 | Tasks（tasks/create） | ✅ | 新增 handleTaskCreate + CompletableFuture 异步 |
+| 7 | 企业授权（已有） | ✅ | mcp-auth（V0.8 已完成） |
+| 8 | MCP Apps | 📋 | V0.12 规划 |
+
+**新增 Marketplace 配置**：`server.json`（MCP Registry）+ `smithery.yaml`（Smithery.ai）+ `.mcp.json`（客户端模板）
+
+**版本号**：`0.11.0-SNAPSHOT` | **测试**：57/57 全绿 ✅
 
 ### 📢 SEO 关键词扩展
 

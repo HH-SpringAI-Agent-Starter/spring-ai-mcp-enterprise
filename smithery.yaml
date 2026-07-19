@@ -1,0 +1,81 @@
+# Smithery.ai listing configuration for Spring AI MCP Enterprise
+# https://smithery.ai — the largest MCP Server marketplace
+
+name: spring-ai-mcp-enterprise
+displayName: Spring AI MCP Enterprise
+description: >
+  The first enterprise-grade MCP Server Framework for Java/Spring Boot ecosystem.
+  Production-ready with RBAC security, OAuth2/SSO, Rate Limiter, Audit Logging,
+  Prometheus monitoring, and full MCP 2026-07-28 stateless protocol support.
+  Built for teams that already run Spring Boot in production.
+version: "0.11.0"
+author: HH-SpringAI-Agent-Starter
+license: Apache-2.0
+homepage: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise
+repository: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise
+
+# Category in marketplace
+categories:
+  - enterprise
+  - database
+  - developer-tools
+  - security
+
+# Runtime info
+runtime: java
+mcpVersion: "2026-07-28"
+compatibleVersions:
+  - "2026-07-28"
+  - "2025-03-26"
+
+# Transport configuration
+transport:
+  type: streamable-http
+  endpoint: http://localhost:8080/api/mcp/message
+
+# Tools exposed by this MCP server
+tools:
+  - name: database_query
+    description: Execute read-only SQL queries against configured databases
+    category: database
+  - name: search_web
+    description: Search the web using configured search engine
+    category: search
+  - name: execute_command
+    description: Execute system commands with security constraints
+    category: system
+  - name: get_weather
+    description: Get current weather for a location
+    category: utility
+
+# Key differentiators
+features:
+  - "Enterprise RBAC (3-tier role-based access control)"
+  - "JWT / OAuth2 / API Key authentication"
+  - "Rate Limiter (per-tool, per-user configurable)"
+  - "Complete Audit Logging (who called what, when, result)"
+  - "Prometheus + Grafana monitoring out-of-box"
+  - "Stateless HTTP for K8s/Cloud Run horizontal scaling"
+  - "Spring AI Alibaba native support (DashScope/通义千问)"
+  - "SPI-based tool extension (write one class, auto-registered)"
+  - "Docker + Docker Compose + K8s ready"
+  - "MCP 2026-07-28 无状态核心 + 能力发现 + W3C Trace Context"
+
+# Social proof
+stars: 0
+forks: 0
+
+# SEO keywords for discovery
+keywords:
+  - mcp server java
+  - spring boot mcp
+  - enterprise mcp
+  - java ai agent
+  - spring ai mcp
+  - 企业级 mcp
+  - mcp java框架
+
+# Contact / Support
+support:
+  issues: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/issues
+  documentation: https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/tree/main/docs
