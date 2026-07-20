@@ -1,17 +1,17 @@
-ï»¿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.11.0-SNAPSHOT</version>
+        <version>0.12.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-client-spring-ai</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI MCP Client ç¤ºä¾‹ â€” æ¼”ç¤ºå¦‚ä½•é€šè¿‡ Spring AI MCP SDK è°ƒç”¨ MCP Enterprise Server</description>
+    <description>Spring AI MCP Client Ê¾Àý ¡ª ÑÝÊ¾ÈçºÎÍ¨¹ý Spring AI MCP SDK µ÷ÓÃ MCP Enterprise Server</description>
 
     <dependencies>
         <!-- Spring AI MCP Client SDK -->

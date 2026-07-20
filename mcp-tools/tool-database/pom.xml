@@ -1,17 +1,17 @@
-ï»¿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.11.0-SNAPSHOT</version>
+        <version>0.12.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>tool-database</artifactId>
     <packaging>jar</packaging>
-    <description>æ•°æ®åº“æŸ¥è¯¢ MCP å·¥å…· â€” æ”¯æŒåªè¯» SQL SELECT æŸ¥è¯¢</description>
+    <description>Êı¾İ¿â²éÑ¯ MCP ¹¤¾ß ¡ª Ö§³ÖÖ»¶Á SQL SELECT ²éÑ¯</description>
 
     <dependencies>
         <dependency>
@@ -24,7 +24,7 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- æœ¬åœ°å¼€å‘/æµ‹è¯•ç”¨ H2 å†…å­˜æ•°æ®åº“ -->
+        <!-- ±¾µØ¿ª·¢/²âÊÔÓÃ H2 ÄÚ´æÊı¾İ¿â -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>

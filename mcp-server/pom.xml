@@ -1,16 +1,16 @@
-ï»¿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.11.0-SNAPSHOT</version>
+        <version>0.12.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-server</artifactId>
     <packaging>jar</packaging>
-    <description>MCP Server å¯è¿è¡ŒæœåŠ¡ - å…¥å£+REST API+ç®¡ç†ç•Œé¢</description>
+    <description>MCP Server ¿ÉÔËĞĞ·şÎñ - Èë¿Ú+REST API+¹ÜÀí½çÃæ</description>
 
     <dependencies>
         <dependency>

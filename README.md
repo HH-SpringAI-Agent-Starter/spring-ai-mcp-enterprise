@@ -267,9 +267,12 @@ docker compose --profile full up -d
 | V0.5 | Docker Compose 升级 + 多 profile | ✅ 已完成 |
 | **V0.6** | **GitHub SEO + 仓库公开 + Topics** | **✅ 已完成** |
 | **V0.7** | **Full Build Profile + 市场日报更新** | **✅ 已完成** |
-| V0.8 | Maven Central 发布脚本 | 🔜 下一步 |
-| V0.8 | Sonatype 注册就绪 | 🔜 |
-| V0.9 | 健康看板 + 工具调用统计 | 📋 规划 |
+| V0.8 | Maven Central 发布脚本 + Sonatype 注册 | ✅ 已完成 |
+| V0.9 | 健康看板 + 工具调用统计 | ✅ 已完成 |
+| V0.10 | 中文社区推广 + 万星增长计划 | ✅ 已完成 |
+| **V0.11** | **MCP 2026-07-28 全面适配** | **✅ 已完成** |
+| **V0.12** | **WAIC 2026 市场更新 + 版本升级** | **✅ 已完成** |
+| V0.13 | MCP Apps 子协议支持 | 🔜 下一步 |
 | V1.0 | 正式发布 + 生产文档 | 📋 规划 |
 
 ---

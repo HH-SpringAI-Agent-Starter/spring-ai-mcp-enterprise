@@ -1,16 +1,16 @@
-ï»¿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.11.0-SNAPSHOT</version>
+        <version>0.12.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-spring-boot-starter</artifactId>
     <packaging>jar</packaging>
-    <description>MCP Spring Boot Starter - è‡ªåŠ¨é…ç½®+å¤–éƒ¨åŒ–é…ç½®</description>
+    <description>MCP Spring Boot Starter - ×Ô¶¯ÅäÖÃ+Íâ²¿»¯ÅäÖÃ</description>
 
     <dependencies>
         <dependency>
@@ -27,6 +27,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- actuator å·²ç§»é™¤ï¼ˆSpring Boot 3.4 fat jar @ConditionalOnAvailableEndpoint bugï¼‰ -->
+        <!-- actuator ÒÑÒÆ³ı£¨Spring Boot 3.4 fat jar @ConditionalOnAvailableEndpoint bug£© -->
     </dependencies>
 </project>

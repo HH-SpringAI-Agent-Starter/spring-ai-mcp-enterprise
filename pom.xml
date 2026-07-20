@@ -6,11 +6,11 @@
 
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>spring-ai-mcp-enterprise</artifactId>
-    <version>0.11.0-SNAPSHOT</version>
+    <version>0.12.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Spring AI MCP Enterprise</name>
-    <description>企业级 MCP (Model Context Protocol) Server 框架 - Java/Spring Boot 实现</description>
+    <description>企业�?MCP (Model Context Protocol) Server 框架 - Java/Spring Boot 实现</description>
     <url>https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise</url>
 
     <licenses>
@@ -47,8 +47,8 @@
         <module>mcp-tools/tool-calculator</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
-        <!-- mcp-alibaba 和 mcp-client-spring-ai 默认跳过（需要 spring-milestones 仓库）
-             使用 -Pfull 激活: mvn clean install -Pfull -->
+        <!-- mcp-alibaba �?mcp-client-spring-ai 默认跳过（需�?spring-milestones 仓库�?
+             使用 -Pfull 激�? mvn clean install -Pfull -->
         <!-- <module>mcp-integrations/mcp-alibaba</module> -->
         <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
     </modules>
@@ -226,7 +226,7 @@
         </plugins>
     </build>
 
-    <!-- 阿里云 Maven 仓库（Spring AI Alibaba 依赖）-->
+    <!-- 阿里�?Maven 仓库（Spring AI Alibaba 依赖�?->
     <repositories>
         <repository>
             <id>spring-milestones</id>
@@ -242,7 +242,7 @@
         </repository>
     </repositories>
 
-    <!-- 发布和集成测试配置 -->
+    <!-- 发布和集成测试配�?-->
     <profiles>
         <profile>
             <id>integration-test</id>
