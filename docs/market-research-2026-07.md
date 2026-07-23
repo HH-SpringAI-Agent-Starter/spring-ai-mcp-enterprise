@@ -1,6 +1,6 @@
 # 📊 MCP Enterprise Server — 市场机会报告
 
-> 更新日期：2026-07-19
+> 更新日期：2026-07-23
 
 ---
 
@@ -397,7 +397,7 @@ MCP 官方发布了协议推出以来**规模最大的修订候选版**，7 月 
 - [ ] Hacker News + V2EX + OSChina 三连发
 - [ ] 联系 Spring AI 官方仓库推荐
 
-## 📈 2026-07-21 更新：市场热度再升级 — 头部互联网公司抢人 + WAIC 验证赛道
+
 
 ### 🎯 发现1：阿里巴巴 AI Agent 方向专家招聘（MCP 协议方向）
 
@@ -424,3 +424,53 @@ MCP 官方发布了协议推出以来**规模最大的修订候选版**，7 月 
 - Java MCP 方案仍极度稀缺（80% MCP 文章是 Python）
 - Spring AI 2.0 GA + MCP 0.8.0 → 标准组合已成熟
 - 项目差异化：唯一企业级 Java MCP 框架（非玩具、非 demo）
+
+## 📈 2026-07-23 更新：MCP 2026-07-28 倒计时5天 — 基础设施层竞争白热化
+
+### 🎯 发现1：MCP 2026-07-28 正式发布倒计时 5 天
+
+- **7月28日** = MCP 史上最大修订正式发布
+- 企查查 AI 技术专家深度解读：从连接协议 → 生产级基础设施
+- CSDN 出现 MCP 2026-07-28 规范深度解析（7/19），验证社区关注度
+- **对项目意义**：V0.13 已完成 87.5% 规范适配，7/28 当天发布 V0.14 是黄金营销窗口
+
+### 🎯 发现2：MCP 基础设施层竞争白热化 — 三大网关级竞品浮现
+
+| 平台 | 定位 | 语言 | 与 MCP Enterprise 关系 |
+|------|------|------|----------------------|
+| **Truefoundry** | Enterprise AI Gateway + MCP Registry | 商业SaaS | 互补（管理层 vs 框架层）|
+| **Obot MCP Gateway** (acorn.io) | 开源 MCP 安全管理平台 | Go | 互补（管理层 vs 框架层）|
+| **agentgateway/agentgateway** | Agentic Proxy for MCP | Rust (2199 commits) | ⚠️ 竞品（Rust 版 MCP 基础设施）|
+
+**关键洞察**：
+- MCP 生态正在分层：框架层（MCP Enterprise）← 代理层（agentgateway）← 管理层（Obot/Truefoundry）
+- agentgateway 用 Rust 写的新一代 Agentic Proxy（2199 commits），证明 MCP 基础设施是高价值赛道
+- MCP Enterprise 差异化：**Java Spring Boot 企业生态 + 完整框架**，与 Rust/Go 方案形成护城河
+
+### 🎯 发现3：企业 MCP 招聘持续升温
+
+- **字节跳动**：「测试开发工程师-开发者AI」指定 MCP 协议优先（硬性筛选）
+- **阿里巴巴**：「Java-AI方向」35-45K·16薪
+- **埃森哲**：「Agent架构师」40-60K·15薪
+- **拼多多2027校招**：Agent 研发工程师（7/21发布）
+- **信号**：MCP 已从加分项变成 Java/Spring 工程师的必备技能
+
+### 🎯 发现4：CSDN Spring AI MCP 实战教程爆发
+
+- 7/17：Spring AI 2.0 + MCP 协议深度解析
+- 7/20：MCP 协议详解 — 工具调用的"USB 标准"
+- 7/22：MCP 2026-07-28 深度解析 — 协议四层架构演进
+- **机会**：Java 开发者社区自学习 MCP，但缺少完整企业级方案
+
+### 🎯 下一步行动建议（7/23-7/28 倒计时）
+
+**7/23-7/27 准备窗口**：
+- [ ] **7/24-7/25**：在 mcp.so 上架 MCP Enterprise Server
+- [ ] **7/26**：准备 Hacker News / V2EX / OSChina 三连发稿件
+- [ ] **7/27**：联系 Spring AI / Spring AI Alibaba 官方推荐
+
+**7/28 🔥 发布日**：
+- [ ] 同步发布 V0.14 "2026-07-28 Compatible"
+- [ ] 掘金 + CSDN + Hacker News + V2EX + OSChina 全渠道
+- [ ] 带上 #MCP20260728 #JavaMCP #SpringAI 话题标签
+- [ ] Upwork 开账号 + mcp.so 上架工具模块
