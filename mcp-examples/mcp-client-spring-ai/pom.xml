@@ -5,13 +5,13 @@
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.12.0-SNAPSHOT</version>
+        <version>0.14.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-client-spring-ai</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI MCP Client Ê¾Àý ¡ª ÑÝÊ¾ÈçºÎÍ¨¹ý Spring AI MCP SDK µ÷ÓÃ MCP Enterprise Server</description>
+    <description>Spring AI MCP Client Ê¾ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ Spring AI MCP SDK ï¿½ï¿½ï¿½ï¿½ MCP Enterprise Server</description>
 
     <dependencies>
         <!-- Spring AI MCP Client SDK -->
