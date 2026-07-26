@@ -1,0 +1,57 @@
+# Dependabot 自动依赖更新配置
+# 文档: https://docs.github.com/en/code-security/dependabog/dependabot-version-updates
+
+version: 2
+updates:
+  # Maven 依赖更新
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+    assignees:
+      - "hh14934"
+    reviewers:
+      - "hh14934"
+    # 忽略 Spring AI 1.x major 更新（保留兼容 2.x 手动控制）
+    ignore:
+      - dependency-name: "org.springframework.ai:*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+
+  # GitHub Actions 更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "ci"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker 镜像更新
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "docker"
+      - "automated"
+    commit-message:
+      prefix: "docker"
+      include: "scope"

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿﻿﻿﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>Spring AI MCP Enterprise</name>
-    <description>企业�?MCP (Model Context Protocol) Server 框架 - Java/Spring Boot 实现</description>
+    <description>企业级 MCP (Model Context Protocol) Server 框架 - Java/Spring Boot 实现</description>
     <url>https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise</url>
 
     <licenses>
@@ -47,8 +47,8 @@
         <module>mcp-tools/tool-calculator</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
-        <!-- mcp-alibaba �?mcp-client-spring-ai 默认跳过（需�?spring-milestones 仓库�?
-             使用 -Pfull 激�? mvn clean install -Pfull -->
+        <!-- mcp-alibaba 和 mcp-client-spring-ai 默认跳过（需要 spring-milestones 仓库）
+             使用 -Pfull 激活: mvn clean install -Pfull -->
         <!-- <module>mcp-integrations/mcp-alibaba</module> -->
         <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
     </modules>

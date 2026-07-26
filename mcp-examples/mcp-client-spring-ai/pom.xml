@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -11,7 +11,7 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-client-spring-ai</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI MCP Client ʾ�� �� ��ʾ���ͨ�� Spring AI MCP SDK ���� MCP Enterprise Server</description>
+    <description>Spring AI MCP Client 示例 - 演示如何通过 Spring AI MCP SDK 调用 MCP Enterprise Server</description>
 
     <dependencies>
         <!-- Spring AI MCP Client SDK -->

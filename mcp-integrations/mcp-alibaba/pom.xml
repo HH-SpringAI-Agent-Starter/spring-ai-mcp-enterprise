@@ -1,34 +1,34 @@
-<?xml version="1.0" encoding="UTF-8"?>
+ï»¿ï»¿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>spring-ai-mcp-enterprise</artifactId>
         <groupId>com.mcp.enterprise</groupId>
-        <version>0.12.0-SNAPSHOT</version>
+        <version>0.14.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-alibaba</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI Alibaba MCP ¼¯³É ¡ª ÈÃ MCP Enterprise Server Ô­Éú¼æÈİ DashScope/Í¨ÒåÇ§ÎÊ</description>
+    <description>Spring AI Alibaba MCP é›†æˆæ¨¡å— - è®© MCP Enterprise Server åŸç”Ÿå¯¹æ¥ DashScope/é€šä¹‰åƒé—®</description>
 
     <dependencies>
-        <!-- ºËĞÄÒÀÀµ -->
+        <!-- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -->
         <dependency>
             <groupId>com.mcp.enterprise</groupId>
             <artifactId>mcp-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Spring AI Alibaba - DashScope Ä£ĞÍ½ÓÈë -->
+        <!-- Spring AI Alibaba - DashScope Ä£ï¿½Í½ï¿½ï¿½ï¿½ -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter</artifactId>
             <version>${spring-ai-alibaba.version}</version>
         </dependency>
 
-        <!-- Spring AI MCP Client ÓÃÓÚ¿Í»§¶Ë²à¼¯³É -->
+        <!-- Spring AI MCP Client ï¿½ï¿½ï¿½Ú¿Í»ï¿½ï¿½Ë²à¼¯ï¿½ï¿½ -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-mcp-client-webmvc</artifactId>
