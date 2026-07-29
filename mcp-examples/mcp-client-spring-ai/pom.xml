@@ -11,7 +11,7 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-client-spring-ai</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI MCP Client 示例 - 演示如何通过 Spring AI MCP SDK 调用 MCP Enterprise Server</description>
+    <description>Spring AI MCP Client Example - MCP Enterprise Server Caller</description>
 
     <dependencies>
         <!-- Spring AI MCP Client SDK -->

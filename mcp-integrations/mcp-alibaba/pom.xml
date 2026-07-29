@@ -1,4 +1,4 @@
-﻿﻿<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -11,7 +11,7 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>mcp-alibaba</artifactId>
     <packaging>jar</packaging>
-    <description>Spring AI Alibaba MCP 集成模块 - 让 MCP Enterprise Server 原生对接 DashScope/通义千问</description>
+    <description>Spring AI Alibaba MCP Integration - DashScope/DashVector</description>
 
     <dependencies>
         <!-- �������� -->
