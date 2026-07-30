@@ -13,19 +13,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * MCP 2026-07-28 无状态核心端点 (Stateless Core)
+ * MCP 2026-07-28 鏃犵姸鎬佹牳蹇冪鐐?(Stateless Core)
  *
- * 支持无状态 HTTP 架构，适用于 Kubernetes / Cloud Run 弹性伸缩。
- * 不维护 SSE 长连接，每次请求独立处理。
+ * 鏀寔鏃犵姸鎬?HTTP 鏋舵瀯锛岄€傜敤浜?Kubernetes / Cloud Run 寮规€т几缂┿€?
+ * 涓嶇淮鎶?SSE 闀胯繛鎺ワ紝姣忔璇锋眰鐙珛澶勭悊銆?
  *
- * 2026-07-28 规范新增特性：
- * - 无状态核心 → 每个请求自包含，无需 session
- * - 能力发现 → Server 在 initialize 响应中声明完整能力
- * - 缓存 → 支持 ETag/Cache-Control
- * - 链路追踪 → 通过 traceId 追踪
- * - 完整 JSON Schema → inputSchema 使用完整 JSON Schema 规范
+ * 2026-07-28 瑙勮寖鏂板鐗规€э細
+ * - 鏃犵姸鎬佹牳蹇?鈫?姣忎釜璇锋眰鑷寘鍚紝鏃犻渶 session
+ * - 鑳藉姏鍙戠幇 鈫?Server 鍦?initialize 鍝嶅簲涓０鏄庡畬鏁磋兘鍔?
+ * - 缂撳瓨 鈫?鏀寔 ETag/Cache-Control
+ * - 閾捐矾杩借釜 鈫?閫氳繃 traceId 杩借釜
+ * - 瀹屾暣 JSON Schema 鈫?inputSchema 浣跨敤瀹屾暣 JSON Schema 瑙勮寖
  *
- * 兼容模式：同时支持旧版 MCP 2025-03-26 协议和老版 SSE 端点
+ * 鍏煎妯″紡锛氬悓鏃舵敮鎸佹棫鐗?MCP 2025-03-26 鍗忚鍜岃€佺増 SSE 绔偣
  */
 public class McpStatelessEndpoint {
 
@@ -34,32 +34,32 @@ public class McpStatelessEndpoint {
     private final ToolRegistry registry;
     private final McpToolManager toolManager;
 
-    /** 2026-07-28 协议版本声明 */
+    /** 2026-07-28 鍗忚鐗堟湰澹版槑 */
     public static final String MCP_2026_PROTOCOL_VERSION = "2026-07-28";
     public static final String MCP_2025_PROTOCOL_VERSION = "2025-03-26";
 
-    /** W3C Trace Context 标准头部 */
+    /** W3C Trace Context 鏍囧噯澶撮儴 */
     public static final String TRACEPARENT_HEADER = "traceparent";
     public static final String TRACESTATE_HEADER = "tracestate";
 
     /**
-     * 服务端能力声明 (MCP 2026-07-28 全面适配)
+     * 鏈嶅姟绔兘鍔涘０鏄?(MCP 2026-07-28 鍏ㄩ潰閫傞厤)
      *
-     * 新增（相对2025-03-26）：
-     * - 无状态核心：每个请求自包含
-     * - 能力发现：server/discover 端点
-     * - W3C Trace Context：traceparent/tracestate
-     * - 完整 JSON Schema 2020-12
-     * - Extensions 一等公民
-     * - Tasks 长任务支持
-     * - MCP Apps 交互UI
+     * 鏂板锛堢浉瀵?025-03-26锛夛細
+     * - 鏃犵姸鎬佹牳蹇冿細姣忎釜璇锋眰鑷寘鍚?
+     * - 鑳藉姏鍙戠幇锛歴erver/discover 绔偣
+     * - W3C Trace Context锛歵raceparent/tracestate
+     * - 瀹屾暣 JSON Schema 2020-12
+     * - Extensions 涓€绛夊叕姘?
+     * - Tasks 闀夸换鍔℃敮鎸?
+     * - MCP Apps 浜や簰UI
      */
     public static final Map<String, Object> SERVER_CAPABILITIES_V2026 = Map.of(
             "protocolVersion", MCP_2026_PROTOCOL_VERSION,
             "supportedProtocolVersions", List.of(MCP_2026_PROTOCOL_VERSION, MCP_2025_PROTOCOL_VERSION),
             "serverInfo", Map.of(
                     "name", "Spring-AI-MCP-Enterprise",
-                    "version", "0.11.0",
+                    "version", "0.15.0",
                     "vendor", "HH-SpringAI-Agent-Starter",
                     "description", "Enterprise MCP Server Framework - Java/Spring Boot - Full 2026-07-28 Compliance"
             ),
@@ -67,22 +67,22 @@ public class McpStatelessEndpoint {
                     "tools", Map.of(
                             "listChanged", true,
                             "supportsPagination", true,
-                            "supportsDiscover", true  // 🆕 能力发现
+                            "supportsDiscover", true  // 馃啎 鑳藉姏鍙戠幇
                     ),
                     "resources", Map.of("subscribe", false, "listChanged", false),
                     "prompts", Map.of("listChanged", false),
                     "logging", Map.of(),
-                    "tasks", Map.of(  // 🆕 长任务支持
+                    "tasks", Map.of(  // 馃啎 闀夸换鍔℃敮鎸?
                             "supported", true,
-                            "maxTimeoutMs", 300_000  // 5分钟
+                            "maxTimeoutMs", 300_000  // 5鍒嗛挓
                     ),
-                    "extensions", Map.of(  // 🆕 Extensions 一等公民
+                    "extensions", Map.of(  // 馃啎 Extensions 涓€绛夊叕姘?
                             "supported", true,
                             "namespaces", List.of("mcp-enterprise", "custom")
                     )
             ),
             "transport", Map.of(
-                    "stateless", true,  // 🆕 无状态核心
+                    "stateless", true,  // 馃啎 鏃犵姸鎬佹牳蹇?
                     "supportedTransports", List.of("streamable-http", "sse")
             ),
             "caching", Map.of(
@@ -91,15 +91,15 @@ public class McpStatelessEndpoint {
                     "maxAgeSeconds", 60
             ),
             "tracing", Map.of(
-                    "supportsTraceContext", true,  // 🆕 W3C Trace Context
+                    "supportsTraceContext", true,  // 馃啎 W3C Trace Context
                     "traceParentHeader", TRACEPARENT_HEADER,
                     "traceStateHeader", TRACESTATE_HEADER
             ),
-            "schema", Map.of(  // 🆕 声明 Schema 版本
+            "schema", Map.of(  // 馃啎 澹版槑 Schema 鐗堟湰
                     "jsonSchemaVersion", "2020-12",
                     "supportsFullJsonSchema", true
             ),
-            "discovery", Map.of(  // 🆕 能力发现端点
+            "discovery", Map.of(  // 馃啎 鑳藉姏鍙戠幇绔偣
                     "endpoint", "/api/mcp/discover",
                     "format", "application/json"
             )
@@ -110,11 +110,11 @@ public class McpStatelessEndpoint {
         this.toolManager = toolManager;
     }
 
-    // ===== 无状态消息处理 (2026-07-28) =====
+    // ===== 鏃犵姸鎬佹秷鎭鐞?(2026-07-28) =====
 
     /**
-     * 处理 MCP JSON-RPC 消息（无状态模式）
-     * 每个请求独立处理，不依赖 session
+     * 澶勭悊 MCP JSON-RPC 娑堟伅锛堟棤鐘舵€佹ā寮忥級
+     * 姣忎釜璇锋眰鐙珛澶勭悊锛屼笉渚濊禆 session
      */
     public Map<String, Object> handleStatelessMessage(Map<String, Object> message, String traceId) {
         if (message == null || !message.containsKey("method")) {
@@ -126,17 +126,17 @@ public class McpStatelessEndpoint {
         @SuppressWarnings("unchecked")
         Map<String, Object> params = (Map<String, Object>) message.getOrDefault("params", Map.of());
 
-        log.debug("MCP 无状态消息: method={}, id={}, traceId={}", method, id, traceId);
+        log.debug("MCP 鏃犵姸鎬佹秷鎭? method={}, id={}, traceId={}", method, id, traceId);
 
-        // 添加 traceId 到响应
+        // 娣诲姞 traceId 鍒板搷搴?
         Map<String, Object> result = switch (method) {
             case "initialize" -> handleInitialize(id, params);
             case "tools/list" -> handleToolsList(id, params);
             case "tools/call" -> handleToolCall(id, params);
             case "tools/listChanged" -> handleToolsList(id, params);
-            case "tools/discover" -> handleToolsDiscover(id, params);  // 🆕 能力发现
-            case "server/discover" -> handleServerDiscover(id, params);  // 🆕 Server 发现
-            case "tasks/create" -> handleTaskCreate(id, params);  // 🆕 长任务
+            case "tools/discover" -> handleToolsDiscover(id, params);  // 馃啎 鑳藉姏鍙戠幇
+            case "server/discover" -> handleServerDiscover(id, params);  // 馃啎 Server 鍙戠幇
+            case "tasks/create" -> handleTaskCreate(id, params);  // 馃啎 闀夸换鍔?
             case "ping" -> successResponse(id, Map.of("status", "ok"));
             default -> errorResponse(id, -32601, "Method not found: " + method);
         };
@@ -148,17 +148,17 @@ public class McpStatelessEndpoint {
         return result;
     }
 
-    // ===== MCP 方法处理 =====
+    // ===== MCP 鏂规硶澶勭悊 =====
 
     private Map<String, Object> handleInitialize(Object id, Map<String, Object> params) {
-        // 检查客户端声明的协议版本，决定返回哪个版本的能力声明
+        // 妫€鏌ュ鎴风澹版槑鐨勫崗璁増鏈紝鍐冲畾杩斿洖鍝釜鐗堟湰鐨勮兘鍔涘０鏄?
         if (params != null) {
             String clientVersion = (String) params.get("protocolVersion");
             if (MCP_2026_PROTOCOL_VERSION.equals(clientVersion)) {
                 return successResponse(id, SERVER_CAPABILITIES_V2026);
             }
         }
-        // 兼容旧版客户端
+        // 鍏煎鏃х増瀹㈡埛绔?
         return successResponse(id, McpSseEndpoint.SERVER_CAPABILITIES);
     }
 
@@ -177,12 +177,12 @@ public class McpStatelessEndpoint {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("tools", mcpTools);
 
-        // 分页支持
+        // 鍒嗛〉鏀寔
         if (cursor != null) {
             result.put("nextCursor", null);
         }
 
-        // 缓存支持
+        // 缂撳瓨鏀寔
         result.put("_etag", "W/\"" + Integer.toHexString(mcpTools.hashCode()) + "\"");
         result.put("_cachedAt", System.currentTimeMillis());
 
@@ -202,7 +202,7 @@ public class McpStatelessEndpoint {
             return errorResponse(id, -32602, "Missing tool name");
         }
 
-        // 使用 toolManager 执行
+        // 浣跨敤 toolManager 鎵ц
         Map<String, Object> result = toolManager.invoke(toolName, arguments).block();
 
         if (result == null) {
@@ -228,19 +228,19 @@ public class McpStatelessEndpoint {
         return successResponse(id, toolResult);
     }
 
-    // ===== 工具方法 =====
+    // ===== 宸ュ叿鏂规硶 =====
 
     /**
-     * 🆕 工具能力发现 — tools/discover
-     * 返回单个工具的完整能力描述，包括 inputSchema、outputSchema、
-     * 缓存策略、速率限制和调用示例。
+     * 馃啎 宸ュ叿鑳藉姏鍙戠幇 鈥?tools/discover
+     * 杩斿洖鍗曚釜宸ュ叿鐨勫畬鏁磋兘鍔涙弿杩帮紝鍖呮嫭 inputSchema銆乷utputSchema銆?
+     * 缂撳瓨绛栫暐銆侀€熺巼闄愬埗鍜岃皟鐢ㄧず渚嬨€?
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> handleToolsDiscover(Object id, Map<String, Object> params) {
         String toolName = params != null ? (String) params.get("name") : null;
 
         if (toolName == null) {
-            // 返回所有工具的能力摘要
+            // 杩斿洖鎵€鏈夊伐鍏风殑鑳藉姏鎽樿
             List<ToolDefinition> tools = registry.listAll().collectList().block();
             List<Map<String, Object>> discoveries = new ArrayList<>();
             if (tools != null) {
@@ -259,18 +259,18 @@ public class McpStatelessEndpoint {
     }
 
     /**
-     * 🆕 Server 级能力发现 — server/discover
-     * 提供完整的 Server 能力清单，供网关和客户端自动发现。
+     * 馃啎 Server 绾ц兘鍔涘彂鐜?鈥?server/discover
+     * 鎻愪緵瀹屾暣鐨?Server 鑳藉姏娓呭崟锛屼緵缃戝叧鍜屽鎴风鑷姩鍙戠幇銆?
      */
     private Map<String, Object> handleServerDiscover(Object id, Map<String, Object> params) {
         Map<String, Object> discovery = new LinkedHashMap<>();
         discovery.putAll(SERVER_CAPABILITIES_V2026);
 
-        // 动态注入工具和统计
+        // 鍔ㄦ€佹敞鍏ュ伐鍏峰拰缁熻
         List<ToolDefinition> tools = registry.listAll().collectList().block();
         Map<String, Object> dynamicInfo = new LinkedHashMap<>();
         dynamicInfo.put("toolCount", tools != null ? tools.size() : 0);
-        dynamicInfo.put("uptime", System.currentTimeMillis());  // 可用 Spring Boot actuator 计算
+        dynamicInfo.put("uptime", System.currentTimeMillis());  // 鍙敤 Spring Boot actuator 璁＄畻
         dynamicInfo.put("health", Map.of("status", "UP"));
         discovery.put("_dynamic", dynamicInfo);
 
@@ -278,8 +278,8 @@ public class McpStatelessEndpoint {
     }
 
     /**
-     * 🆕 长任务创建 — tasks/create
-     * MCP 2026-07-28 支持异步长任务，返回 taskId 供轮询。
+     * 馃啎 闀夸换鍔″垱寤?鈥?tasks/create
+     * MCP 2026-07-28 鏀寔寮傛闀夸换鍔★紝杩斿洖 taskId 渚涜疆璇€?
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> handleTaskCreate(Object id, Map<String, Object> params) {
@@ -302,7 +302,7 @@ public class McpStatelessEndpoint {
         result.put("timeoutMs", timeoutMs);
         result.put("_checkEndpoint", "/api/mcp/tasks/" + taskId);
 
-        // 异步执行（简化版，生产环境应使用 TaskExecutor 或消息队列）
+        // 寮傛鎵ц锛堢畝鍖栫増锛岀敓浜х幆澧冨簲浣跨敤 TaskExecutor 鎴栨秷鎭槦鍒楋級
         CompletableFuture.runAsync(() -> {
             Map<String, Object> execResult = toolManager.invoke(toolName, arguments).block();
             log.info("Task {} completed: {}", taskId, execResult);
@@ -333,10 +333,10 @@ public class McpStatelessEndpoint {
                 "perSecond", def.getRateLimitPerSecond(),
                 "timeoutMs", def.getTimeoutMs()
         ));
-        // 🆕 调用示例（帮助 AI 客户端理解用法）
+        // 馃啎 璋冪敤绀轰緥锛堝府鍔?AI 瀹㈡埛绔悊瑙ｇ敤娉曪級
         discovery.put("examples", List.of(
                 Map.of(
-                        "description", "调用 " + def.getDisplayName(),
+                        "description", "璋冪敤 " + def.getDisplayName(),
                         "method", "tools/call",
                         "params", Map.of("name", def.getName(), "arguments", def.getInputSchema() != null
                                 ? Map.of("placeholder", "see inputSchema for required fields")
@@ -367,12 +367,12 @@ public class McpStatelessEndpoint {
         mcpTool.put("category", def.getCategory());
         mcpTool.put("version", def.getVersion());
 
-        // 完整 JSON Schema 支持 (2026-07-28 新特性)
+        // 瀹屾暣 JSON Schema 鏀寔 (2026-07-28 鏂扮壒鎬?
         Map<String, Object> inputSchema = def.getInputSchema() != null
                 ? new LinkedHashMap<>(def.getInputSchema())
                 : new LinkedHashMap<String, Object>();
 
-        // 🆕 升级到 JSON Schema 2020-12（MCP 2026-07-28 要求）
+        // 馃啎 鍗囩骇鍒?JSON Schema 2020-12锛圡CP 2026-07-28 瑕佹眰锛?
         if (!inputSchema.containsKey("$schema")) {
             inputSchema.put("$schema", "https://json-schema.org/draft/2020-12/schema");
         }
@@ -384,7 +384,7 @@ public class McpStatelessEndpoint {
         return mcpTool;
     }
 
-    // ===== 响应工具 =====
+    // ===== 鍝嶅簲宸ュ叿 =====
 
     public static Map<String, Object> successResponse(Object id, Object result) {
         Map<String, Object> response = new LinkedHashMap<>();

@@ -1,5 +1,6 @@
 package com.mcp.enterprise.server;
 
+import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import com.mcp.enterprise.core.model.ToolDefinition;
 import com.mcp.enterprise.core.registry.ToolRegistry;
 import com.mcp.enterprise.core.security.McpSecurityManager;
@@ -52,7 +53,7 @@ public class McpServerController {
         return Map.of(
                 "success", true,
                 "sessionId", sessionId,
-                "serverVersion", "0.0.2",
+                "serverVersion", "0.15.0",
                 "supportedProtocols", List.of("mcp-v1", "streaming-v1"),
                 "serverName", "Spring-AI-MCP-Enterprise"
         );
@@ -106,7 +107,7 @@ public class McpServerController {
     public Map<String, Object> health() {
         return Map.of(
                 "status", "UP",
-                "version", "0.0.2",
+                "version", "0.15.0",
                 "toolCount", registry.count(),
                 "activeSessions", sessions.size(),
                 "uptime", System.currentTimeMillis()
@@ -139,6 +140,86 @@ public class McpServerController {
                 "sessions", Map.of("active", sessions.size()),
                 "audit", Map.of("recentEntries", recentAuditCount)
         );
+    }
+
+    // ===== V0.15: MCP 2026-07-28 能力发现端点 =====
+
+    /**
+     * GET /api/mcp/discover — Server 级能力发现
+     * MCP 2026-07-28 规范要求 Server 提供能力发现端点。
+     * 返回完整的 Server 能力清单，供 MCP Marketplace / 网关 / AI 客户端自动发现。
+     */
+    @GetMapping("/discover")
+    public Map<String, Object> discover() {
+        Map<String, Object> discovery = new LinkedHashMap<>();
+
+        discovery.put("protocolVersion", McpStatelessEndpoint.MCP_2026_PROTOCOL_VERSION);
+        discovery.put("supportedProtocolVersions", List.of(
+                McpStatelessEndpoint.MCP_2026_PROTOCOL_VERSION,
+                McpStatelessEndpoint.MCP_2025_PROTOCOL_VERSION
+        ));
+
+        discovery.put("server", Map.of(
+                "name", "spring-ai-mcp-enterprise",
+                "version", "0.15.0",
+                "vendor", "HH-SpringAI-Agent-Starter",
+                "homepage", "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise",
+                "language", "Java 17",
+                "framework", "Spring Boot 3.4",
+                "mcpSpec", "2026-07-28"
+        ));
+
+        discovery.put("endpoints", Map.of(
+                "rest", "/api/mcp",
+                "tools", "/api/mcp/tools",
+                "invoke", "/api/mcp/tools/{name}/invoke",
+                "health", "/api/mcp/health",
+                "stats", "/api/mcp/stats",
+                "discover", "/api/mcp/discover"
+        ));
+
+        discovery.put("capabilities", Map.of(
+                "tools", Map.of(
+                        "total", registry.count(),
+                        "listChanged", true,
+                        "supportsPagination", true,
+                        "supportsDiscover", true
+                ),
+                "tasks", Map.of("supported", true, "maxTimeoutMs", 300_000),
+                "extensions", Map.of("supported", true, "namespaces", List.of("mcp-enterprise", "custom"))
+        ));
+
+        discovery.put("security", Map.of(
+                "auth", List.of("api-key", "oauth2", "oidc"),
+                "rateLimit", true, "auditLog", true, "rbac", true
+        ));
+
+        discovery.put("infrastructure", Map.of(
+                "caching", Map.of("supportsETag", true, "supportsCacheControl", true),
+                "tracing", Map.of("supportsTraceContext", true, "standard", "W3C Trace Context"),
+                "schema", Map.of("jsonSchemaVersion", "2020-12")
+        ));
+
+        int toolCount = registry.count();
+        List<ToolDefinition> tools = registry.listAll().collectList().block();
+        discovery.put("status", Map.of(
+                "health", "UP", "toolCount", toolCount, "activeSessions", sessions.size(),
+                "activeTools", tools != null ? tools.stream().filter(ToolDefinition::isEnabled).count() : 0
+        ));
+
+        if (tools != null) {
+            List<Map<String, Object>> toolSummary = new ArrayList<>();
+            for (ToolDefinition t : tools) {
+                toolSummary.add(Map.of(
+                        "name", t.getName(), "displayName", t.getDisplayName(),
+                        "description", t.getDescription(), "category", t.getCategory(),
+                        "enabled", t.isEnabled()
+                ));
+            }
+            discovery.put("tools", toolSummary);
+        }
+
+        return discovery;
     }
 
     public record ClientSession(String sessionId, String clientName, String apiKey, long createdAt) {}
