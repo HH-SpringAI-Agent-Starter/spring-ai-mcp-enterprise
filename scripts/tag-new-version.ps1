@@ -54,10 +54,13 @@ if (-not $latestTag) {
 }
 
 # ── Step 2: Get commits since last tag ──
+# NOTE: use a unique separator (||) instead of spaces, because %ai (ISO date)
+# contains spaces ("2026-08-01 21:36:32 +0800"), which broke naive space-splitting
+# and silently dropped the commit message (-> missed V0.16.1 on 2026-08-01).
 if ($latestTag) {
-    $log = git log "$latestTag..HEAD" --oneline --format="%H %ai %s"
+    $log = git log "$latestTag..HEAD" --pretty=format:"%H%x7c%ai%x7c%s"
 } else {
-    $log = git log --oneline --format="%H %ai %s"
+    $log = git log --pretty=format:"%H%x7c%ai%x7c%s"
 }
 
 if (-not $log) {
@@ -81,11 +84,11 @@ $tagged = 0
 $lines = $log -split "`n"
 foreach ($line in $lines) {
     if (-not $line.Trim()) { continue }
-    $parts = $line -split '\s+', 3
+    $parts = $line -split '\|', 3
     if ($parts.Count -lt 3) { continue }
     $sha = $parts[0]
-    $dateStr = $parts[1] + " " + $parts[2]
-    $msg = $parts[3]
+    $dateStr = $parts[1]
+    $msg = $parts[2]
 
     $version = Get-VersionFromMessage $msg
     if (-not $version) { continue }
