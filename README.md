@@ -71,7 +71,42 @@
 Docker Compose 一键启动，支持 `monitoring`、`with-db`、`full` 等多环境 profile。
 
 ### 🤖 Spring AI Alibaba 集成
-原生兼容 DashScope/通义千问模型（可选模块 `mcp-alibaba`）。
+
+原生兼容 **DashScope / 通义千问** 生态（可选模块 `mcp-alibaba`），国内企业零成本接入阿里云 AI 后端。
+
+**你的技术栈是 Spring AI Alibaba？直接兼容：**
+
+```xml
+<dependency>
+    <groupId>com.mcp.enterprise</groupId>
+    <artifactId>mcp-alibaba</artifactId>
+    <version>0.16.0-SNAPSHOT</version>
+</dependency>
+```
+
+```yaml
+spring:
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+mcp:
+  enterprise:
+    integration:
+      alibaba:
+        enabled: true
+        chat-model: qwen-max          # 通义千问聊天模型
+        embedding-model: text-embedding-v3
+        mcp-client-auto-connect: true # 自动连接 MCP Server
+```
+
+启动后自动：连接 MCP Server → 发现并缓存工具 → 通过 `ChatClient` 让通义千问直接调用 MCP 工具。
+
+```bash
+# 全量构建（含 alibaba 集成 + Spring AI Client 示例）
+mvn clean install -Pfull
+```
+
+> 📖 详细配置见 [docs/alibaba-integration-guide.md](docs/alibaba-integration-guide.md)
 
 ---
 
