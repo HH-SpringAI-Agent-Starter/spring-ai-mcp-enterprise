@@ -31,7 +31,7 @@
         <!-- Spring AI MCP Client ���ڿͻ��˲༯�� -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-mcp-client-webmvc</artifactId>
+            <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>
             <scope>compile</scope>
         </dependency>
 

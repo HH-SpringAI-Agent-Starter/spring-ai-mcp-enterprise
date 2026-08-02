@@ -47,7 +47,7 @@
         <module>mcp-tools/tool-calculator</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
-        <!-- mcp-alibaba �?mcp-client-spring-ai 默认跳过（需�?spring-milestones 仓库�?
+                <!-- mcp-alibaba & mcp-client-spring-ai are skipped by default (require spring-milestones repo).
               Use -Pfull to activate: mvn clean install -Pfull -->
         <!-- <module>mcp-integrations/mcp-alibaba</module> -->
         <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
