@@ -25,9 +25,9 @@
 
 **1. Build Docker image**
 ```bash
-docker build -t spring-ai-mcp-enterprise:0.15.0 .
-docker tag spring-ai-mcp-enterprise:0.15.0 ghcr.io/hh-springai-agent-starter/spring-ai-mcp-enterprise:0.15.0
-docker push ghcr.io/hh-springai-agent-starter/spring-ai-mcp-enterprise:0.15.0
+docker build -t spring-ai-mcp-enterprise:1.0.0 .
+docker tag spring-ai-mcp-enterprise:1.0.0 ghcr.io/hh-springai-agent-starter/spring-ai-mcp-enterprise:1.0.0
+docker push ghcr.io/hh-springai-agent-starter/spring-ai-mcp-enterprise:1.0.0
 ```
 
 **2. Deploy to Cloud (recommended: Alibaba Cloud SAE / Tencent CloudBase)**
@@ -72,7 +72,7 @@ smithery deploy  # smithery.yaml already in project root
 
 ```bash
 gcloud run deploy mcp-enterprise \
-  --image gcr.io/PROJECT/spring-ai-mcp-enterprise:0.15.0 \
+  --image gcr.io/PROJECT/spring-ai-mcp-enterprise:1.0.0 \
   --platform managed --region asia-east1 \
   --memory 512Mi --cpu 1 --min-instances 0 --max-instances 5
 ```
