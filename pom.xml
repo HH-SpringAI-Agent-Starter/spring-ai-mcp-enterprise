@@ -82,6 +82,7 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Spring AI 1.0 BOM: 管理 spring-ai-mcp-client-* 系列依赖版本 (Maven 要求 BOM 唯一) -->
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
@@ -89,14 +90,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Spring AI 2.0 BOM: 兼容模式 -->
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-bom</artifactId>
-                <version>${spring-ai-2.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+            <!-- Spring AI 2.0: 兼容模式由模块内 profile 自行声明，父 pom 不再重复 import (Maven BOM 唯一性约束) -->
             <!-- Spring AI Alibaba BOM: mcp-alibaba 模块自己管理，不需要父 pom 托管 -->
         </dependencies>
     </dependencyManagement>
