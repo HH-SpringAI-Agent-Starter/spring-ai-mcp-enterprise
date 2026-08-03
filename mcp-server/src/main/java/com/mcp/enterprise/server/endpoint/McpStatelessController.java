@@ -3,15 +3,27 @@ package com.mcp.enterprise.server.endpoint;
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * MCP 无状态 (Stateless) Web 控制器
  * <p>
  * 实现 2026-07-28 无状态核心协议，适用于 Kubernetes/Cloud Run 弹性伸缩。
  * 无需 SSE 长连接，每次请求独立处理。
+ * <p>
+ * Streamable HTTP 双通道 (2026-07-28 新默认传输)：
+ * <ul>
+ *   <li>GET  /api/mcp/v2/stream — server→client 事件流（tools/listChanged 通知 + 心跳）</li>
+ *   <li>POST /api/mcp/v2/message — 客户端→服务端 JSON-RPC 请求/响应</li>
+ *   <li>POST /api/mcp/v2/notify  — 管理员/事件源触发 tools/listChanged 广播</li>
+ * </ul>
  * <p>
  * 兼容模式：自动检测客户端协议版本，降级到 2025-03-26 SSE 端点。
  */
@@ -21,7 +33,11 @@ public class McpStatelessController {
 
     private static final Logger log = LoggerFactory.getLogger(McpStatelessController.class);
 
+    /** 心跳间隔：15s，避免网关/负载均衡长连接超时断开 */
+    private static final long HEARTBEAT_INTERVAL_MS = 15_000L;
+
     private final McpStatelessEndpoint statelessEndpoint;
+    private final Map<String, SseEmitter> streamEmitters = new ConcurrentHashMap<>();
 
     public McpStatelessController(McpStatelessEndpoint statelessEndpoint) {
         this.statelessEndpoint = statelessEndpoint;
@@ -102,15 +118,106 @@ public class McpStatelessController {
     }
 
     /**
+     * Streamable HTTP — GET 事件流通道 (2026-07-28 新默认传输)
+     * <p>
+     * server→client 通知流：tools/listChanged 等事件通过此通道推送。
+     * 客户端可通过 curl -N 或 EventSource 连接，保持长连接。
+     * 每 15s 发送一次心跳，防止代理/网关断开空闲连接。
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream() {
+        String streamId = UUID.randomUUID().toString();
+        SseEmitter emitter = new SseEmitter(0L); // 无超时，靠心跳保活
+        streamEmitters.put(streamId, emitter);
+
+        emitter.onCompletion(() -> streamEmitters.remove(streamId));
+        emitter.onTimeout(() -> streamEmitters.remove(streamId));
+        emitter.onError(e -> streamEmitters.remove(streamId));
+
+        // 连接建立：立即发送初始端点事件
+        try {
+            emitter.send(SseEmitter.event()
+                    .id(streamId)
+                    .name("endpoint")
+                    .data(Map.of(
+                            "protocolVersion", McpStatelessEndpoint.MCP_2026_PROTOCOL_VERSION,
+                            "streamId", streamId,
+                            "heartbeatIntervalMs", HEARTBEAT_INTERVAL_MS
+                    )));
+        } catch (IOException e) {
+            log.warn("Failed to send initial stream event: {}", e.getMessage());
+            streamEmitters.remove(streamId);
+            emitter.complete();
+            return emitter;
+        }
+
+        // 后台心跳线程：每 15s 发送 keep-alive，保持连接存活
+        Thread heartbeat = new Thread(() -> {
+            try {
+                while (streamEmitters.containsKey(streamId)) {
+                    Thread.sleep(HEARTBEAT_INTERVAL_MS);
+                    if (!streamEmitters.containsKey(streamId)) {
+                        break;
+                    }
+                    emitter.send(SseEmitter.event()
+                            .name("heartbeat")
+                            .data(Map.of("t", System.currentTimeMillis())));
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                log.debug("Stream {} heartbeat ended: {}", streamId, e.getMessage());
+                streamEmitters.remove(streamId);
+                emitter.complete();
+            }
+        }, "mcp-stream-heartbeat-" + streamId);
+        heartbeat.setDaemon(true);
+        heartbeat.start();
+
+        log.info("MCP Streamable HTTP stream opened: {}", streamId);
+        return emitter;
+    }
+
+    /**
+     * Streamable HTTP — 触发 tools/listChanged 广播
+     * <p>
+     * 当工具注册中心发生变化（新增/移除/更新工具）时，调用此端点
+     * 向所有已连接的流客户端推送通知，客户端随即重新拉取 tools/list。
+     */
+    @PostMapping("/notify")
+    public Map<String, Object> notifyToolsChanged() {
+        int delivered = 0;
+        for (Map.Entry<String, SseEmitter> entry : streamEmitters.entrySet()) {
+            try {
+                entry.getValue().send(SseEmitter.event()
+                        .name("notifications/tools/list_changed")
+                        .data(Map.of("changedAt", System.currentTimeMillis())));
+                delivered++;
+            } catch (IOException e) {
+                log.debug("Failed to notify stream {}: {}", entry.getKey(), e.getMessage());
+                streamEmitters.remove(entry.getKey());
+            }
+        }
+        log.info("tools/listChanged broadcast delivered to {} streams", delivered);
+        return Map.of(
+                "status", "ok",
+                "delivered", delivered,
+                "connectedStreams", streamEmitters.size()
+        );
+    }
+
+    /**
      * 健康检查端点 (无状态模式)
      */
     @GetMapping("/health")
     public Map<String, Object> health() {
         return Map.of(
                 "status", "UP",
-                "version", "0.0.2",
+                "version", "0.16.0",
                 "protocol", "2026-07-28",
-                "mode", "stateless"
+                "mode", "stateless",
+                "transport", "streamable-http",
+                "connectedStreams", streamEmitters.size()
         );
     }
 }

@@ -83,7 +83,13 @@ public class McpStatelessEndpoint {
             ),
             "transport", Map.of(
                     "stateless", true,  // 馃啎 鏃犵姸鎬佹牳蹇?
-                    "supportedTransports", List.of("streamable-http", "sse")
+                    "supportedTransports", List.of("streamable-http", "sse"),
+                    "streamableHttp", Map.of(  // 首次明确流通道定位
+                            "endpoint", "/api/mcp/v2",
+                            "stream", "/api/mcp/v2/stream",      // GET: server→client 通知流
+                            "message", "/api/mcp/v2/message",    // POST: JSON-RPC 请求/响应
+                            "notify", "/api/mcp/v2/notify"       // POST: tools/listChanged 广播
+                    )
             ),
             "caching", Map.of(
                     "supportsETag", true,

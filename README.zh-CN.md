@@ -1,7 +1,7 @@
 # Spring AI MCP Enterprise — 企业级 MCP Server 框架（Java/Spring Boot）
 
 > **Java Spring Boot 构建的企业级 MCP（Model Context Protocol）Server，让 AI Agent 安全调用数据库查询、网络搜索、系统监控等企业工具。**
-> **零配置启动 · SPI 扩展 · SSE 流式调用 · RBAC 权限 · 审计日志 · 容器化部署 · Maven Central 发布就绪**
+> **零配置启动 · SPI 扩展 · Streamable HTTP 无状态调用 · RBAC 权限 · 审计日志 · 容器化部署 · Maven Central 发布就绪**
 
 [![Build](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml/badge.svg)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
@@ -89,8 +89,8 @@ public class MyToolExecutor implements McpToolExecutor {
 - **审计日志**：每次工具调用记录谁、何时、做了什么
 - **OAuth2/SSO**：企业级统一身份认证（mcp-auth 模块）
 
-### 🔄 SSE 流式调用
-支持 Server-Sent Events 协议，AI Agent 可流式接收工具执行结果，支持大结果分片传输。
+### 🔄 Streamable HTTP 调用（2026-07-28 规范新默认）
+支持 **Streamable HTTP 无状态传输**（POST `/api/mcp/v2/message` + GET `/api/mcp/v2/stream` 事件流），无需 session 可直接挂负载均衡/K8s 弹性伸缩；同时兼容 SSE 流式调用（2025-03-26 协议，`/api/mcp/sse`），支持大结果分片传输。
 
 ### 📊 监控体系
 - Prometheus 指标暴露

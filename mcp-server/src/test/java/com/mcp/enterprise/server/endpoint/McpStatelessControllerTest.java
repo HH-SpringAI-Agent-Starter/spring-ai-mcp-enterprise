@@ -109,8 +109,41 @@ class McpStatelessControllerTest {
     void healthShouldReturnUp() {
         Map<String, Object> health = controller.health();
         assertEquals("UP", health.get("status"));
-        assertEquals("0.0.2", health.get("version"));
+        assertEquals("0.16.0", health.get("version"));
         assertEquals("stateless", health.get("mode"));
+    }
+
+    @Test
+    void healthShouldReportStreamableHttpTransport() {
+        Map<String, Object> health = controller.health();
+        assertEquals("streamable-http", health.get("transport"));
+        assertTrue(health.containsKey("connectedStreams"));
+    }
+
+    @Test
+    void notifyWithoutStreamsShouldReturnZeroDelivered() {
+        Map<String, Object> result = controller.notifyToolsChanged();
+        assertNotNull(result);
+        assertEquals("ok", result.get("status"));
+        assertEquals(0, result.get("delivered"));
+        assertEquals(0, result.get("connectedStreams"));
+    }
+
+    @Test
+    void openStreamShouldReturnEmitter() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = controller.stream();
+        assertNotNull(emitter);
+        // 关闭以释放心跳线程
+        emitter.complete();
+    }
+
+    @Test
+    void notifyAfterOpenStreamShouldDeliverToConnectedClient() throws Exception {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = controller.stream();
+        assertNotNull(emitter);
+        Map<String, Object> result = controller.notifyToolsChanged();
+        assertEquals(1, result.get("delivered"));
+        emitter.complete();
     }
 
     @Test

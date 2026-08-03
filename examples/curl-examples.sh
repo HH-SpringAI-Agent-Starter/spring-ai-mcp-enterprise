@@ -63,3 +63,51 @@ curl -s -X POST "${BASE_URL}/api/mcp/disconnect" \
 echo ""
 
 echo "✅ curl 示例运行完成!"
+
+echo ""
+echo "============================================"
+echo "🆕 Streamable HTTP (2026-07-28 规范) 示例"
+echo "============================================"
+echo ""
+
+# 8️⃣ 能力声明 (v2 无状态)
+echo "📡 8. v2 能力声明"
+curl -s "${BASE_URL}/api/mcp/v2" | python3 -m json.tool
+echo ""
+
+# 9️⃣ v2 健康检查（含 streamable-http 传输信息）
+echo "🩺 9. v2 健康检查"
+curl -s "${BASE_URL}/api/mcp/v2/health" | python3 -m json.tool
+echo ""
+
+# 🔟 初始化 (无状态，无需 session)
+echo "🚀 10. 无状态 initialize"
+curl -s -X POST "${BASE_URL}/api/mcp/v2/initialize" \
+  -H "Content-Type: application/json" \
+  -d '{"protocolVersion":"2026-07-28","clientInfo":{"name":"curl-demo"}}' | python3 -m json.tool
+echo ""
+
+# 1️⃣1️⃣ 无状态 tools/list
+echo "🔧 11. 无状态 tools/list"
+curl -s "${BASE_URL}/api/mcp/v2/tools" | python3 -m json.tool
+echo ""
+
+# 1️⃣2️⃣ 无状态 tools/call
+echo "⚡ 12. 无状态 tools/call"
+curl -s -X POST "${BASE_URL}/api/mcp/v2/tools/call" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"system_info","arguments":{}}' | python3 -m json.tool
+echo ""
+
+# 1️⃣3️⃣ Streamable HTTP — GET 事件流（server→client 通知通道）
+# 连接后保持 15s 心跳，收到 tools/listChanged 通知后重新拉取 tools/list
+echo "📡 13. Streamable HTTP 事件流 (Ctrl+C 退出，建议单独终端运行)"
+echo "     curl -N ${BASE_URL}/api/mcp/v2/stream"
+echo ""
+
+# 1️⃣4️⃣ 触发 tools/listChanged 广播（需先有流连接）
+echo "📢 14. 触发 tools/listChanged 广播"
+curl -s -X POST "${BASE_URL}/api/mcp/v2/notify" | python3 -m json.tool
+echo ""
+
+echo "✅ Streamable HTTP 示例完成!"

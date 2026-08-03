@@ -1,7 +1,7 @@
 # Spring AI MCP Enterprise — Java 企业级 MCP Server 框架
 
 > **Java Spring Boot 构建的 MCP（Model Context Protocol）Server，让 AI Agent 安全调用数据库查询、网络搜索、系统监控等企业工具。**
-> **零配置启动 · SPI 扩展 · SSE 流式调用 · 容器化部署 · Maven Central 发布就绪**
+> **零配置启动 · SPI 扩展 · Streamable HTTP 无状态调用 · 容器化部署 · Maven Central 发布就绪**
 
 [![Build](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml/badge.svg)](https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/actions/workflows/maven-ci.yml)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
@@ -61,8 +61,13 @@
 - 基于角色的工具权限控制（`admin`/`user`）
 - 速率限制 + 超时控制
 
-### 🔄 SSE 流式调用
-支持 Server-Sent Events 协议，AI Agent 可流式接收工具执行结果。
+### 🔄 Streamable HTTP 调用（2026-07-28 规范新默认）
+支持 **Streamable HTTP 无状态传输**：
+- `POST /api/mcp/v2/message` — JSON-RPC 请求/响应（无需 session，可直接挂负载均衡）
+- `GET  /api/mcp/v2/stream` — server→client 通知流（tools/listChanged + 15s 心跳）
+- `POST /api/mcp/v2/notify` — 工具变更广播
+
+同时兼容 **SSE 流式调用**（2025-03-26 协议，`/api/mcp/sse`），AI Agent 可流式接收工具执行结果。
 
 ### 📊 管理 API
 内置 `McpAdminEndpoint`：注册/注销/查看工具详情/健康检查。
@@ -240,7 +245,9 @@ docker compose --profile full up -d
 
 | 2026-07-28 特性 | MCP Enterprise 支持 | 实现模块 |
 |-----------------|---------------------|---------|
-| 无状态核心 | ✅ 已支持 | mcp-core McpSseEndpoint |
+| 无状态核心 | ✅ 已支持 | mcp-core McpStatelessEndpoint |
+| Streamable HTTP 传输 | ✅ 已支持 (GET 事件流 + POST 消息) | mcp-server McpStatelessController |
+| 工具变更通知 (listChanged) | ✅ 已支持 (SSE 广播) | mcp-server /api/mcp/v2/stream + notify |
 | 能力发现 | ✅ 已支持 | mcp-core ToolRegistry |
 | RBAC 权限 | ✅ 已支持 | mcp-core McpSecurityManager |
 | 企业授权 (OAuth2/SSO) | ✅ 已支持 | mcp-auth 模块 |
@@ -249,7 +256,7 @@ docker compose --profile full up -d
 | Prometheus 指标 | ✅ 已支持 | mcp-monitor McpMetricsCollector |
 | Tools 无状态 REST | ✅ 已支持 | mcp-core McpToolManager |
 
-> V0.11（下周）将完成 2026-07-28 规范全面适配。
+> ✅ 2026-07-28 规范已全面适配（V0.11+），Streamable HTTP 为新默认传输。
 
 ---
 
@@ -257,7 +264,7 @@ docker compose --profile full up -d
 
 ### Q: MCP Enterprise 是免费的么？
 
-**是的。** 完全开源免费，采用 Apache 2.0 许可。GitHub 仓库包含完整的框架源码、内置工具、SSE 端点、安全机制和管理 API。
+**是的。** 完全开源免费，采用 Apache 2.0 许可。GitHub 仓库包含完整的框架源码、内置工具、Streamable HTTP/SSE 端点、安全机制和管理 API。
 
 ### Q: 与 Spring AI Alibaba 是什么关系？
 
