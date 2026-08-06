@@ -109,7 +109,7 @@ class McpStatelessControllerTest {
     void healthShouldReturnUp() {
         Map<String, Object> health = controller.health();
         assertEquals("UP", health.get("status"));
-        assertEquals("0.16.0", health.get("version"));
+        assertEquals("1.0.0", health.get("version"));
         assertEquals("stateless", health.get("mode"));
     }
 

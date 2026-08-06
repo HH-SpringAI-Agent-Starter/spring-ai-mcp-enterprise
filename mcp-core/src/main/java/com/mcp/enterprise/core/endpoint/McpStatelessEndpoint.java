@@ -59,7 +59,7 @@ public class McpStatelessEndpoint {
             "supportedProtocolVersions", List.of(MCP_2026_PROTOCOL_VERSION, MCP_2025_PROTOCOL_VERSION),
             "serverInfo", Map.of(
                     "name", "Spring-AI-MCP-Enterprise",
-                    "version", "0.15.0",
+                    "version", "1.0.0",
                     "vendor", "HH-SpringAI-Agent-Starter",
                     "description", "Enterprise MCP Server Framework - Java/Spring Boot - Full 2026-07-28 Compliance"
             ),

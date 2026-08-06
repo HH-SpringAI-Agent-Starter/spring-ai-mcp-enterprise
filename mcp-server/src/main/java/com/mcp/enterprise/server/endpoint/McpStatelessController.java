@@ -213,7 +213,7 @@ public class McpStatelessController {
     public Map<String, Object> health() {
         return Map.of(
                 "status", "UP",
-                "version", "0.16.0",
+                "version", "1.0.0",
                 "protocol", "2026-07-28",
                 "mode", "stateless",
                 "transport", "streamable-http",

@@ -85,7 +85,7 @@ Docker Compose 一键启动，支持 `monitoring`、`with-db`、`full` 等多环
 <dependency>
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>mcp-alibaba</artifactId>
-    <version>0.16.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 

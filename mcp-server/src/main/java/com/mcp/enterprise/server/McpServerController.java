@@ -53,7 +53,7 @@ public class McpServerController {
         return Map.of(
                 "success", true,
                 "sessionId", sessionId,
-                "serverVersion", "0.15.0",
+                "serverVersion", "1.0.0",
                 "supportedProtocols", List.of("mcp-v1", "streaming-v1"),
                 "serverName", "Spring-AI-MCP-Enterprise"
         );
@@ -107,7 +107,7 @@ public class McpServerController {
     public Map<String, Object> health() {
         return Map.of(
                 "status", "UP",
-                "version", "0.15.0",
+                "version", "1.0.0",
                 "toolCount", registry.count(),
                 "activeSessions", sessions.size(),
                 "uptime", System.currentTimeMillis()
@@ -161,7 +161,7 @@ public class McpServerController {
 
         discovery.put("server", Map.of(
                 "name", "spring-ai-mcp-enterprise",
-                "version", "0.15.0",
+                "version", "1.0.0",
                 "vendor", "HH-SpringAI-Agent-Starter",
                 "homepage", "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise",
                 "language", "Java 17",
