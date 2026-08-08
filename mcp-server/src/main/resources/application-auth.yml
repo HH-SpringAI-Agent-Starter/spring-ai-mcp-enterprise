@@ -34,6 +34,8 @@ mcp:
         - profile
         - email
         - roles
+      # 机器对机器认证（服务账户）: POST /api/auth/oauth2/token
+      client-credentials-enabled: true
 
     # 身份提供商列表（支持多 IdP）
     identity-providers:

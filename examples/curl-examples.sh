@@ -111,3 +111,21 @@ curl -s -X POST "${BASE_URL}/api/mcp/v2/notify" | python3 -m json.tool
 echo ""
 
 echo "✅ Streamable HTTP 示例完成!"
+
+# 15. OAuth2 Client Credentials (machine-to-machine) token
+echo "馃攼 15. OAuth2 client-credentials token"
+TOKEN_RESP=$(curl -s -X POST "${BASE_URL}/api/auth/oauth2/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=mcp-service&client_secret=change-me-client-secret&scope=tools:read")
+echo "$TOKEN_RESP" | python3 -m json.tool
+echo ""
+
+# 16. Call MCP tool with Bearer token
+echo "馃摗 16. tools/call with Bearer token"
+ACCESS_TOKEN=$(echo "$TOKEN_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)[\"access_token\"])" 2>/dev/null)
+curl -s -X POST "${BASE_URL}/api/mcp/v2/tools/call" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"name":"system_info","arguments":{}}' | python3 -m json.tool
+echo ""
+echo "鉁?Streamable HTTP 绀轰緥瀹屾垚!"

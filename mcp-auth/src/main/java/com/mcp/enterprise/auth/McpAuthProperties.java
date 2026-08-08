@@ -65,6 +65,8 @@ public class McpAuthProperties {
         private String clientSecret = "";
         /** 额外的 scope */
         private List<String> scopes = List.of("openid", "profile", "email");
+        /** 是否启用 Client Credentials 模式（机器对机器认证） */
+        private boolean clientCredentialsEnabled = true;
 
         public String getIssuerUri() { return issuerUri; }
         public void setIssuerUri(String issuerUri) { this.issuerUri = issuerUri; }
@@ -74,6 +76,8 @@ public class McpAuthProperties {
         public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
         public List<String> getScopes() { return scopes; }
         public void setScopes(List<String> scopes) { this.scopes = scopes; }
+        public boolean isClientCredentialsEnabled() { return clientCredentialsEnabled; }
+        public void setClientCredentialsEnabled(boolean clientCredentialsEnabled) { this.clientCredentialsEnabled = clientCredentialsEnabled; }
     }
 
     public static class IdentityProvider {

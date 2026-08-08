@@ -45,6 +45,7 @@
         <module>mcp-tools/tool-system</module>
         <module>mcp-tools/tool-weather</module>
         <module>mcp-tools/tool-calculator</module>
+        <module>mcp-tools/tool-http</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
                 <!-- mcp-alibaba & mcp-client-spring-ai are skipped by default (require spring-milestones repo).

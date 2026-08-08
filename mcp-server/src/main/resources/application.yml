@@ -21,6 +21,18 @@ mcp:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
 
+mcp:
+  tool:
+    http:
+      enabled: true
+      # 白名单：仅允许调用这些主机（* 通配符支持子域名），默认仅 localhost
+      allowed-hosts:
+        - localhost
+        - 127.0.0.1
+      connect-timeout: 5s
+      read-timeout: 30s
+      max-response-bytes: 1048576
+
 logging:
   level:
     com.mcp: INFO

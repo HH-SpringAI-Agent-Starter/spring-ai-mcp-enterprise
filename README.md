@@ -204,8 +204,9 @@ docker compose --profile full up -d
 | `mcp-tools/tool-database` | 数据库查询工具（只读 SQL） |
 | `mcp-tools/tool-search` | 网络搜索工具 |
 | `mcp-tools/tool-system` | 系统信息工具（JVM/OS/GC） |
+| `mcp-tools/tool-http` | **通用 HTTP 调用工具**（域名白名单防 SSRF，对接内部 REST API） |
 | `mcp-monitor` | Prometheus + Actuator 监控 |
-| **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key 兼容（新增！） |
+| **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
