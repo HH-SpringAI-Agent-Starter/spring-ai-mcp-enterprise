@@ -105,7 +105,7 @@ mcp:
 <dependency>
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>mcp-alibaba</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 

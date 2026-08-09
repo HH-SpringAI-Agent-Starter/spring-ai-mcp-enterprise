@@ -66,7 +66,7 @@ RBAC 权限模型、审计日志、限流熔断、监控告警——这些「企
 <dependency>
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>mcp-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 

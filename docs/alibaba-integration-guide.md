@@ -17,7 +17,7 @@ MCP Enterprise Server 的 `mcp-alibaba` 模块提供零配置集成。
 <dependency>
     <groupId>com.mcp.enterprise</groupId>
     <artifactId>mcp-alibaba</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
