@@ -22,7 +22,12 @@ Write-Host "local HEAD: $headSha"
 if ($baseSha -eq $headSha) { Write-Host 'Already up to date'; exit 0 }
 
 # 2. Changed files between base and HEAD (only tracked changes in commits)
-$files = git diff --name-only "$baseSha..HEAD" --diff-filter=ACMR
+# 远程 base 可能是 API 推送生成的 commit（本地无此对象），git diff 会失败 -> 退化为 HEAD~1..HEAD
+$files = git diff --name-only "$baseSha..HEAD" --diff-filter=ACMR 2>$null
+if ($LASTEXITCODE -ne 0 -or -not $files) {
+    Write-Host "remote base not in local repo, fallback to HEAD~1..HEAD"
+    $files = git diff --name-only "HEAD~1..HEAD" --diff-filter=ACMR
+}
 $files = $files | Where-Object { $_ -ne '' }
 Write-Host "files to upload: $($files.Count)"
 if ($files.Count -eq 0) { throw 'No changed files found in commits' }
