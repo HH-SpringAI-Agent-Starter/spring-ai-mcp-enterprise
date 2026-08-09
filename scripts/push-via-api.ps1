@@ -46,8 +46,15 @@ $tree = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/trees" -M
 Write-Host "new tree: $($tree.sha)"
 
 # 5. Create commit
+# 读取 commit message 原始字节，避免 PowerShell 5.1 GBK 解码 UTF-8 中文变乱码
+# Start-Process -RedirectStandardOutput 将子进程原始 stdout 字节直接写文件（不经过 PS 文本管道）
+$tmpMsg = Join-Path $env:TEMP ("mcp_commit_msg_" + $PID + ".txt")
+$gp = Start-Process git -ArgumentList 'log','-1','--format=%s' -RedirectStandardOutput $tmpMsg -NoNewWindow -Wait -PassThru
+$message = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($tmpMsg)).Trim()
+Remove-Item $tmpMsg -ErrorAction SilentlyContinue
+Write-Host "commit message (utf-8): $message"
 $commitBody = @{
-    message = (git log -1 --format=%s)
+    message = $message
     tree = $tree.sha
     parents = @($baseSha)
 } | ConvertTo-Json -Depth 5 -Compress
