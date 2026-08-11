@@ -48,10 +48,9 @@
         <module>mcp-tools/tool-http</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
-                <!-- mcp-alibaba & mcp-client-spring-ai are skipped by default (require spring-milestones repo).
-              Use -Pfull to activate: mvn clean install -Pfull -->
-        <!-- <module>mcp-integrations/mcp-alibaba</module> -->
-        <!-- <module>mcp-examples/mcp-client-spring-ai</module> -->
+        <!-- V1.2: Spring AI Alibaba 集成 + Spring AI Client 示例纳入默认构建（依赖 spring-milestones/aliyun 仓库，已在全局 repositories 声明） -->
+        <module>mcp-integrations/mcp-alibaba</module>
+        <module>mcp-examples/mcp-client-spring-ai</module>
     </modules>
 
     <parent>
@@ -282,12 +281,10 @@
         </profile>
 
         <!-- ===== Full Build: 包含 Alibaba 集成 + Spring AI Client 示例 ===== -->
+        <!-- V1.2: full profile 保留向后兼容（历史命令 mvn clean install -Pfull 仍可用）。
+            模块已默认激活，本 profile 仅保留 spring-boot-maven-plugin skip 行为兼容。 -->
         <profile>
             <id>full</id>
-            <modules>
-                <module>mcp-integrations/mcp-alibaba</module>
-                <module>mcp-examples/mcp-client-spring-ai</module>
-            </modules>
             <build>
                 <plugins>
                     <plugin>

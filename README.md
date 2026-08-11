@@ -107,7 +107,10 @@ mcp:
 启动后自动：连接 MCP Server → 发现并缓存工具 → 通过 `ChatClient` 让通义千问直接调用 MCP 工具。
 
 ```bash
-# 全量构建（含 alibaba 集成 + Spring AI Client 示例）
+# 默认构建（V1.2 起已包含 alibaba 集成 + Spring AI Client 示例）
+mvn clean install
+
+# 向后兼容：历史全量构建命令（行为同默认构建）
 mvn clean install -Pfull
 ```
 
