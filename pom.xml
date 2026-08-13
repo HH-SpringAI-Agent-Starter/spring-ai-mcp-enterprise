@@ -46,6 +46,8 @@
         <module>mcp-tools/tool-weather</module>
         <module>mcp-tools/tool-calculator</module>
         <module>mcp-tools/tool-http</module>
+        <!-- V1.3: 金融场景模板（投研/财务指标计算），企业场景模板化战略第一步 -->
+        <module>mcp-tools/tool-finance</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
         <!-- V1.2: Spring AI Alibaba 集成 + Spring AI Client 示例纳入默认构建（依赖 spring-milestones/aliyun 仓库，已在全局 repositories 声明） -->
