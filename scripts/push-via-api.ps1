@@ -51,22 +51,21 @@ $tree = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/trees" -M
 Write-Host "new tree: $($tree.sha)"
 
 # 5. Create commit
-# 读取 commit message 原始字节，避免 PowerShell 5.1 GBK 解码 UTF-8 中文变乱码
-# Start-Process -RedirectStandardOutput 将子进程原始 stdout 字节直接写文件（不经过 PS 文本管道）
-$tmpMsg = Join-Path $env:TEMP ("mcp_commit_msg_" + $PID + ".txt")
-$gp = Start-Process git -ArgumentList 'log','-1','--format=%s' -RedirectStandardOutput $tmpMsg -NoNewWindow -Wait -PassThru
-$message = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($tmpMsg)).Trim()
-Remove-Item $tmpMsg -ErrorAction SilentlyContinue
+# 直接捕获 commit message（Console 已设 UTF-8），ConvertTo-Json 自动转义中文；
+# 以 UTF-8 字节发送 body，避免 PowerShell 5.1 默认编码破坏中文（曾导致 422）
+$message = (git log -1 --format=%s).Trim()
 Write-Host "commit message (utf-8): $message"
 $commitBody = @{
     message = $message
     tree = $tree.sha
     parents = @($baseSha)
 } | ConvertTo-Json -Depth 5 -Compress
-$commit = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/commits" -Method Post -Headers $headers -Body $commitBody -ContentType 'application/json' -TimeoutSec 60
+$utf8Body = [System.Text.Encoding]::UTF8.GetBytes($commitBody)
+$commit = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/commits" -Method Post -Headers $headers -Body $utf8Body -ContentType 'application/json; charset=utf-8' -TimeoutSec 60
 Write-Host "new commit: $($commit.sha)"
 
 # 6. Update ref
 $updateBody = @{ sha = $commit.sha; force = $false } | ConvertTo-Json -Compress
-$updated = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/refs/heads/main" -Method Patch -Headers $headers -Body $updateBody -ContentType 'application/json' -TimeoutSec 30
+$utf8Update = [System.Text.Encoding]::UTF8.GetBytes($updateBody)
+$updated = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/refs/heads/main" -Method Patch -Headers $headers -Body $utf8Update -ContentType 'application/json; charset=utf-8' -TimeoutSec 30
 Write-Host "PUSH OK: main -> $($updated.object.sha)"
