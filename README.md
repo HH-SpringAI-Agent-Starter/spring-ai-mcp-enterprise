@@ -208,7 +208,7 @@ docker compose --profile full up -d
 | `mcp-tools/tool-search` | 网络搜索工具 |
 | `mcp-tools/tool-system` | 系统信息工具（JVM/OS/GC） |
 | `mcp-tools/tool-http` | **通用 HTTP 调用工具**（域名白名单防 SSRF，对接内部 REST API） |
-| `mcp-tools/tool-finance` | **金融场景模板**：投研/财务指标计算（CAGR/ROE/PEG/复利/定投/利润率），面向研报助手、投顾机器人 |
+| `mcp-tools/tool-finance` | **金融场景模板**：财务指标计算（CAGR/ROE/PEG/复利/定投/利润率）+ 合规日历（财报披露窗口）+ 风险评分（五维加权），面向研报助手、投顾/风控机器人 |
 | `mcp-monitor` | Prometheus + Actuator 监控 |
 | **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
