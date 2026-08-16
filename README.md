@@ -324,6 +324,11 @@ docker compose --profile full up -d
 | **V0.15** | **MCP 2026-07-28 完整合规 + Marketplace Ready** | ✅ 已完成 |
 | **V0.16** | **无状态营销战役 + 生态 PR 启动** | ✅ 已完成 |
 | **V1.0** | **正式发布 + 生产文档（部署/运维手册）** | 🔄 进行中 |
+| **V1.1** | **tool-http(SSRF防护) + OAuth2 client-credentials + 白皮书** | ✅ 已完成 |
+| **V1.2** | **Spring AI Alibaba 集成纳入默认构建 + 市场调研/SEO 博客** | ✅ 已完成 |
+| **V1.3** | **金融场景模板 tool-finance（CAGR/ROE/PEG/复利/定投）** | ✅ 已完成 |
+| **V1.4** | **金融模板二期：合规日历 + 风险评分** | ✅ 已完成 |
+| **V1.5** | **2026-07-28 最终版网关友好：Mcp-Method/Mcp-Name 标头 + 传输验证 + ttlMs/cacheScope + 确定性排序** | ✅ 已完成 |
 
 ---
 

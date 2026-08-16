@@ -386,6 +386,11 @@ A: 最小配置 256MB 内存 + 1 核 CPU 即可运行。推荐生产配置 1GB �
 - [x] **V0.10 中文社区推广 + 万星增长计划**
 - [x] **V0.11 MCP 2026-07-28 规范全面适配（无状态核心/Extensions/Tasks）**
 - [x] **V0.12 WAIC 2026 市场更新 + 版本升级 ← 当前**
+- [x] **V1.1 tool-http(SSRF防护) + OAuth2 client-credentials + 白皮书**
+- [x] **V1.2 Spring AI Alibaba 集成纳入默认构建**
+- [x] **V1.3 金融场景模板 tool-finance**
+- [x] **V1.4 金融模板二期：合规日历 + 风险评分**
+- [x] **V1.5 2026-07-28 网关友好：Mcp-Method/Mcp-Name 标头 + ttlMs/cacheScope + 确定性排序**
 - [ ] V0.13 MCP Apps 子协议支持
 - [ ] V0.14 更多工具：Redis、Kafka、文件系统
 - [ ] V0.15 WebSocket 传输支持

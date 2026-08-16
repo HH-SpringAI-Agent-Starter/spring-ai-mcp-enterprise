@@ -341,4 +341,132 @@ class McpStatelessEndpointTest {
         assertEquals("https://json-schema.org/draft/2020-12/schema", schema.get("$schema"));
         assertEquals("object", schema.get("type"));
     }
+
+    // ===== 2026-07-28 最终版：网关友好标头 + 缓存控制 + 确定性排序 =====
+
+    @Test
+    void shouldListToolsInDeterministicOrder() {
+        // 注册第二个工具，验证 tools/list 按 name 字典序返回
+        McpToolExecutor secondTool = new McpToolExecutor() {
+            @Override
+            public ToolDefinition getDefinition() {
+                return new ToolDefinition(
+                        "alpha-tool", "Alpha 工具", "第二个", "test", "1.0.0",
+                        null, true, "admin", 5000, 10,
+                        Map.of("type", "object", "properties", Map.of()),
+                        null);
+            }
+            @Override
+            public Mono<Map<String, Object>> execute(Map<String, Object> params) {
+                return Mono.just(Map.of("success", true, "result", "alpha"));
+            }
+        };
+        toolManager.registerExecutor(secondTool);
+
+        Map<String, Object> response = endpoint.handleStatelessMessage(
+                Map.of("jsonrpc", "2.0", "id", "2", "method", "tools/list"), null);
+        Map<String, Object> result = (Map<String, Object>) response.get("result");
+        java.util.List<Map<String, Object>> tools = (java.util.List<Map<String, Object>>) result.get("tools");
+
+        assertEquals(2, tools.size());
+        assertEquals("alpha-tool", tools.get(0).get("name"));
+        assertEquals("test", tools.get(1).get("name"));
+    }
+
+    @Test
+    void shouldIncludeTtlAndCacheScopeInList() {
+        Map<String, Object> response = endpoint.handleStatelessMessage(
+                Map.of("jsonrpc", "2.0", "id", "2", "method", "tools/list"), null);
+        Map<String, Object> result = (Map<String, Object>) response.get("result");
+
+        Map<String, Object> caching = (Map<String, Object>) result.get("caching");
+        assertNotNull(caching);
+        assertEquals(60_000L, ((Number) caching.get("ttlMs")).longValue());
+        assertEquals("global", caching.get("cacheScope"));
+        assertEquals(Boolean.TRUE, caching.get("deterministicOrder"));
+        assertNotNull(caching.get("etag"));
+    }
+
+    @Test
+    void shouldAcceptGatewayHeadersWhenMatching() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0",
+                "id", "3",
+                "method", "tools/call",
+                "params", Map.of("name", "test", "arguments", Map.of("msg", "World"))
+        );
+
+        // 标头与请求体一致 → 校验通过
+        Map<String, Object> validationError =
+                endpoint.validateGatewayHeaders("tools/call", "test", message);
+        assertNull(validationError);
+    }
+
+    @Test
+    void shouldRejectGatewayHeadersWhenMethodMismatch() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0",
+                "id", "3",
+                "method", "tools/call",
+                "params", Map.of("name", "test")
+        );
+
+        // Mcp-Method 与 body 方法不一致 → 拒绝（防止标头掩盖真实调用）
+        Map<String, Object> validationError =
+                endpoint.validateGatewayHeaders("tools/list", null, message);
+        assertNotNull(validationError);
+        Map<String, Object> error = (Map<String, Object>) validationError.get("error");
+        assertEquals(-32600, error.get("code"));
+        assertTrue(String.valueOf(error.get("message")).contains("Transport validation failed"));
+    }
+
+    @Test
+    void shouldRejectGatewayHeadersWhenNameMismatch() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0",
+                "id", "3",
+                "method", "tools/call",
+                "params", Map.of("name", "test")
+        );
+
+        // Mcp-Name 与 body 中 name 不一致 → 拒绝
+        Map<String, Object> validationError =
+                endpoint.validateGatewayHeaders("tools/call", "evil-tool", message);
+        assertNotNull(validationError);
+    }
+
+    @Test
+    void shouldAllowMissingGatewayHeaders() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0", "id", "1", "method", "ping");
+        // 未携带标头 = 传统路径，不强制校验
+        assertNull(endpoint.validateGatewayHeaders(null, null, message));
+        assertNull(endpoint.validateGatewayHeaders("", null, message));
+    }
+
+    @Test
+    void shouldBuildGatewayRouteMetadata() {
+        Map<String, Object> route = McpStatelessEndpoint.buildGatewayRoute("tools/call", "test");
+        assertEquals("tools/call", route.get("method"));
+        assertEquals("tool", route.get("operationType"));
+        assertEquals("test", route.get("name"));
+
+        Map<String, Object> resourceRoute = McpStatelessEndpoint.buildGatewayRoute("resources/read", null);
+        assertEquals("resource", resourceRoute.get("operationType"));
+    }
+
+    @Test
+    void shouldDeclareGatewayCapabilities() {
+        Map<String, Object> caps = McpStatelessEndpoint.SERVER_CAPABILITIES_V2026;
+        Map<String, Object> gateway = (Map<String, Object>) caps.get("gateway");
+        assertNotNull(gateway);
+        assertEquals("Mcp-Method", gateway.get("methodHeader"));
+        assertEquals("Mcp-Name", gateway.get("nameHeader"));
+        assertEquals(Boolean.TRUE, gateway.get("transportValidation"));
+
+        Map<String, Object> caching = (Map<String, Object>) caps.get("caching");
+        assertNotNull(caching.get("ttlMs"));
+        assertEquals("global", caching.get("cacheScope"));
+        assertEquals(Boolean.TRUE, caching.get("deterministicOrder"));
+    }
 }

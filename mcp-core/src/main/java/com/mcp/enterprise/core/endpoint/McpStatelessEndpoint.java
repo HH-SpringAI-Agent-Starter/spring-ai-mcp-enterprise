@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 /**
  * MCP 2026-07-28 无状态核心端点 (Stateless Core)
@@ -41,6 +42,14 @@ public class McpStatelessEndpoint {
     /** W3C Trace Context 标准头部 */
     public static final String TRACEPARENT_HEADER = "traceparent";
     public static final String TRACESTATE_HEADER = "tracestate";
+
+    // ===== 2026-07-28 最终版：网关友好标头 (Gateway-Friendly Headers) =====
+    // 网关/API 网关无需解析请求体即可按操作进行速率限制或授权
+    public static final String MCP_METHOD_HEADER = "Mcp-Method";
+    public static final String MCP_NAME_HEADER = "Mcp-Name";
+
+    /** 缓存控制默认值：工具目录默认 60s 新鲜度 */
+    public static final long DEFAULT_TOOLS_TTL_MS = 60_000L;
 
     /**
      * 服务端能力声明 (MCP 2026-07-28 全面适配)
@@ -94,7 +103,16 @@ public class McpStatelessEndpoint {
             "caching", Map.of(
                     "supportsETag", true,
                     "supportsCacheControl", true,
-                    "maxAgeSeconds", 60
+                    "maxAgeSeconds", 60,
+                    "ttlMs", DEFAULT_TOOLS_TTL_MS,       // ✨ 2026-07-28 最终版：新鲜度提示
+                    "cacheScope", "global",              // ✨ cacheScope 支持
+                    "deterministicOrder", true           // ✨ 确定性排序
+            ),
+            "gateway", Map.of(  // ✨ 2026-07-28 最终版：网关友好标头
+                    "methodHeader", MCP_METHOD_HEADER,
+                    "nameHeader", MCP_NAME_HEADER,
+                    "transportValidation", true,
+                    "benefits", List.of("rate-limit-without-body-parse", "authz-without-body-parse")
             ),
             "tracing", Map.of(
                     "supportsTraceContext", true,  // ✨ W3C Trace Context
@@ -179,6 +197,10 @@ public class McpStatelessEndpoint {
             }
         }
 
+        // ✨ 2026-07-28 最终版：确定性排序（按 name 字典序）
+        // 提升提示词缓存命中率；大规模场景下降低延迟与 Token 成本
+        mcpTools.sort(Comparator.comparing(t -> String.valueOf(t.get("name"))));
+
         String cursor = params != null ? (String) params.get("cursor") : null;
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("tools", mcpTools);
@@ -188,8 +210,18 @@ public class McpStatelessEndpoint {
             result.put("nextCursor", null);
         }
 
-        // 缓存支持
-        result.put("_etag", "W/\"" + Integer.toHexString(mcpTools.hashCode()) + "\"");
+        // ✨ 2026-07-28 最终版：ttlMs + cacheScope 缓存控制（替代旧 _etag/_cachedAt）
+        // ttlMs 是新鲜度提示（参考 HTTP Cache-Control）；cacheScope 支持全局/用户级缓存
+        String cacheScope = params != null ? (String) params.get("cacheScope") : null;
+        Map<String, Object> caching = new LinkedHashMap<>();
+        caching.put("ttlMs", DEFAULT_TOOLS_TTL_MS);
+        caching.put("cacheScope", "global");
+        caching.put("etag", "W/\"" + Integer.toHexString(mcpTools.hashCode()) + "\"");
+        caching.put("deterministicOrder", true);
+        result.put("caching", caching);
+
+        // 兼容旧字段（部分客户端仍读取）
+        result.put("_etag", caching.get("etag"));
         result.put("_cachedAt", System.currentTimeMillis());
 
         return successResponse(id, result);
@@ -281,6 +313,76 @@ public class McpStatelessEndpoint {
         discovery.put("_dynamic", dynamicInfo);
 
         return successResponse(id, discovery);
+    }
+
+    // ===== 2026-07-28 最终版：网关友好标头处理 (Gateway-Friendly Headers) =====
+
+    /**
+     * 校验请求标头与请求体的一致性（传输验证规则）。
+     * <p>
+     * 网关可仅凭 Mcp-Method / Mcp-Name 标头进行速率限制或授权，
+     * 无需解析 JSON 请求体；但后端必须拒绝任何与正文不符的标头，
+     * 否则看似无害的标头可能掩盖实际执行的另一项调用。
+     *
+     * @param mcpMethod  Mcp-Method 标头值（可空）
+     * @param mcpName    Mcp-Name 标头值（可空，仅 tools/call 等命名操作）
+     * @param message    JSON-RPC 请求体
+     * @return null 表示校验通过；否则返回错误响应（不处理请求）
+     */
+    public Map<String, Object> validateGatewayHeaders(String mcpMethod, String mcpName, Map<String, Object> message) {
+        if (mcpMethod == null || mcpMethod.isBlank()) {
+            return null;  // 未携带标头 = 传统调用路径，不强制校验
+        }
+        String bodyMethod = message != null ? String.valueOf(message.get("method")) : null;
+        if (bodyMethod == null) {
+            return errorResponse(null, -32600, "Invalid Request: missing 'method'");
+        }
+        // 标头必须与请求体方法一致（规范化：tools/call vs tools.call 均接受）
+        String normalizedHeader = mcpMethod.trim().replace('.', '/');
+        String normalizedBody = bodyMethod.replace('.', '/');
+        if (!normalizedHeader.equals(normalizedBody)) {
+            return errorResponse(null, -32600,
+                    "Transport validation failed: Mcp-Method header '" + mcpMethod
+                            + "' does not match request body method '" + bodyMethod + "'");
+        }
+        // 命名操作（tools/call / tools/discover 等）：Mcp-Name 必须与 body 中 name 一致
+        if (mcpName != null && !mcpName.isBlank()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> params = (Map<String, Object>) message.getOrDefault("params", Map.of());
+            Object bodyName = params.get("name");
+            if (bodyName != null && !mcpName.trim().equals(String.valueOf(bodyName))) {
+                return errorResponse(null, -32600,
+                        "Transport validation failed: Mcp-Name header '" + mcpName
+                                + "' does not match request body name '" + bodyName + "'");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 根据请求推断网关路由信息（供网关限流/授权中间件使用）。
+     *
+     * @param method MCP 方法（如 tools/call）
+     * @param name   命名操作的目标名（如工具名，可空）
+     * @return 网关路由元数据
+     */
+    public static Map<String, Object> buildGatewayRoute(String method, String name) {
+        Map<String, Object> route = new LinkedHashMap<>();
+        route.put("method", method);
+        route.put("operationType", classifyOperation(method));
+        if (name != null && !name.isBlank()) {
+            route.put("name", name);
+        }
+        return route;
+    }
+
+    private static String classifyOperation(String method) {
+        if (method == null) return "unknown";
+        if (method.startsWith("tools/")) return "tool";
+        if (method.startsWith("resources/")) return "resource";
+        if (method.startsWith("prompts/")) return "prompt";
+        if (method.startsWith("tasks/")) return "task";
+        return "protocol";
     }
 
     /**

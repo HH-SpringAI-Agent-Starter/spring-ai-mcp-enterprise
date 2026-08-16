@@ -56,15 +56,28 @@ public class McpStatelessController {
      * <p>
      * 每个请求独立处理，不依赖 session。
      * 支持 initialize / tools/list / tools/call / ping。
+     * <p>
+     * ✨ 2026-07-28 最终版：网关友好标头（Mcp-Method / Mcp-Name）
+     * 网关可仅凭标头进行速率限制/授权；后端执行传输验证，
+     * 拒绝任何与请求体不符的标头（防止标头掩盖真实调用）。
      */
     @PostMapping("/message")
     public Map<String, Object> handleStatelessMessage(
             @RequestBody Map<String, Object> message,
             @RequestHeader(value = "X-MCP-Trace-Id", required = false) String traceId,
-            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+            @RequestHeader(value = McpStatelessEndpoint.MCP_METHOD_HEADER, required = false) String mcpMethod,
+            @RequestHeader(value = McpStatelessEndpoint.MCP_NAME_HEADER, required = false) String mcpName) {
 
-        log.debug("MCP Stateless message: method={}, traceId={}",
-                message != null ? message.get("method") : null, traceId);
+        log.debug("MCP Stateless message: method={}, traceId={}, Mcp-Method={}, Mcp-Name={}",
+                message != null ? message.get("method") : null, traceId, mcpMethod, mcpName);
+
+        // ✨ 传输验证：标头与请求体必须一致（2026-07-28 最终版）
+        Map<String, Object> validationError = statelessEndpoint.validateGatewayHeaders(mcpMethod, mcpName, message);
+        if (validationError != null) {
+            log.warn("MCP transport validation failed: Mcp-Method={}, Mcp-Name={}", mcpMethod, mcpName);
+            return validationError;
+        }
 
         return statelessEndpoint.handleStatelessMessage(message, traceId);
     }
