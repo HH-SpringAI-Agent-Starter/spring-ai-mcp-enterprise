@@ -132,4 +132,52 @@ class McpMetricsCollectorTest {
         assertEquals(1L, summary.get("gatewayInvocations"));
         assertEquals(1, summary.get("gatewayOperations"));
     }
+
+    // ===== V1.7: Prometheus 文本导出 =====
+
+    @Test
+    void testExportPrometheusIncludesToolMetrics() {
+        collector.recordInvocation("greet", 120, true);
+        collector.recordInvocation("greet", 80, true);
+        collector.recordInvocation("greet", 50, false);
+
+        String output = collector.exportPrometheus();
+
+        assertTrue(output.contains("# TYPE mcp_tool_invocations_total counter"));
+        assertTrue(output.contains("mcp_tool_invocations_total{tool=\"greet\"} 3"));
+        assertTrue(output.contains("mcp_tool_errors_total{tool=\"greet\"} 1"));
+        assertTrue(output.contains("mcp_tool_latency_ms{tool=\"greet\"}"));
+    }
+
+    @Test
+    void testExportPrometheusIncludesGatewayMetrics() {
+        collector.recordGatewayInvocation("tools/call", "greet", 120, true);
+        collector.recordGatewayInvocation("tools/call", "greet", 80, false);
+        collector.recordGatewayInvocation("ping", "", 5, true);
+
+        String output = collector.exportPrometheus();
+
+        assertTrue(output.contains("mcp_gateway_invocations_total{method=\"ping\",name=\"\"} 1"));
+        assertTrue(output.contains("mcp_gateway_invocations_total{method=\"tools/call\",name=\"greet\"} 2"));
+        assertTrue(output.contains("mcp_gateway_errors_total{method=\"tools/call\",name=\"greet\"} 1"));
+        assertTrue(output.contains("mcp_gateway_latency_ms{method=\"tools/call\",name=\"greet\"}"));
+        // 确定性排序：ping 在 tools/call 之前
+        assertTrue(output.indexOf("ping") < output.indexOf("tools/call"));
+    }
+
+    @Test
+    void testExportPrometheusEscapesLabels() {
+        collector.recordGatewayInvocation("tools/call", "say\"hello", 10, true);
+
+        String output = collector.exportPrometheus();
+        assertTrue(output.contains("name=\"say\\\"hello\""));
+    }
+
+    @Test
+    void testExportPrometheusEmptyState() {
+        String output = collector.exportPrometheus();
+        // 空状态不应抛异常，包含 build_info 与 TYPE 头
+        assertTrue(output.contains("mcp_build_info{version=\"1.1.0\"} 1"));
+        assertFalse(output.contains("mcp_tool_invocations_total{tool"));
+    }
 }

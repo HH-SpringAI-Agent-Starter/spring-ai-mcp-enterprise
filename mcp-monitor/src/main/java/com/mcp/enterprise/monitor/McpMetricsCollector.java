@@ -226,6 +226,110 @@ public class McpMetricsCollector {
         gatewayOpMetrics.clear();
     }
 
+    // ===== V1.7: Prometheus 文本格式导出 =====
+
+    /**
+     * 导出 Prometheus 文本格式指标（OpenMetrics 风格）
+     * 供 Prometheus 抓取 / Grafana 可视化，兼容标准 scrape 语义。
+     *
+     * 指标名：
+     *   mcp_tool_invocations_total{tool="..."}  — 工具调用总数
+     *   mcp_tool_errors_total{tool="..."}       — 工具调用错误数
+     *   mcp_tool_latency_ms{tool="..."}         — 工具平均延迟（毫秒）
+     *   mcp_gateway_invocations_total{method="...",name="..."} — 网关操作调用数
+     *   mcp_gateway_errors_total{method="...",name="..."}      — 网关操作错误数
+     *   mcp_gateway_latency_ms{method="...",name="..."}        — 网关操作平均延迟
+     *   mcp_build_info{version="..."}           — 版本信息
+     */
+    public String exportPrometheus() {
+        StringBuilder sb = new StringBuilder(2048);
+        sb.append("# HELP mcp_tool_invocations_total Total tool invocations in retention window.\n");
+        sb.append("# TYPE mcp_tool_invocations_total counter\n");
+        var aggregated = getAggregatedMetrics();
+        aggregated.values().stream()
+                .filter(m -> m.totalInvocations > 0)
+                .sorted(Comparator.comparing(McpMetricsCollector.ToolMetrics::toolName))
+                .forEach(m -> sb.append("mcp_tool_invocations_total{tool=\"")
+                        .append(escapeLabel(m.toolName())).append("\"} ")
+                        .append(m.totalInvocations()).append('\n'));
+
+        sb.append("# HELP mcp_tool_errors_total Total tool invocation errors in retention window.\n");
+        sb.append("# TYPE mcp_tool_errors_total counter\n");
+        aggregated.values().stream()
+                .filter(m -> m.totalInvocations > 0)
+                .sorted(Comparator.comparing(McpMetricsCollector.ToolMetrics::toolName))
+                .forEach(m -> sb.append("mcp_tool_errors_total{tool=\"")
+                        .append(escapeLabel(m.toolName())).append("\"} ")
+                        .append(m.errors()).append('\n'));
+
+        sb.append("# HELP mcp_tool_latency_ms Average tool latency in milliseconds.\n");
+        sb.append("# TYPE mcp_tool_latency_ms gauge\n");
+        aggregated.values().stream()
+                .filter(m -> m.totalInvocations > 0)
+                .sorted(Comparator.comparing(McpMetricsCollector.ToolMetrics::toolName))
+                .forEach(m -> sb.append("mcp_tool_latency_ms{tool=\"")
+                        .append(escapeLabel(m.toolName())).append("\"} ")
+                        .append(formatDouble(m.avgLatencyMs())).append('\n'));
+
+        sb.append("# HELP mcp_gateway_invocations_total Gateway route invocations by Mcp-Method/Mcp-Name.\n");
+        sb.append("# TYPE mcp_gateway_invocations_total counter\n");
+        gatewayOpMetrics.values().stream()
+                .sorted(Comparator.comparing(GatewayOpMetrics::getMethod).thenComparing(GatewayOpMetrics::getName))
+                .forEach(m -> sb.append("mcp_gateway_invocations_total{method=\"")
+                        .append(escapeLabel(m.getMethod())).append("\",name=\"")
+                        .append(escapeLabel(m.getName())).append("\"} ")
+                        .append(m.totalInvocations()).append('\n'));
+
+        sb.append("# HELP mcp_gateway_errors_total Gateway route errors.\n");
+        sb.append("# TYPE mcp_gateway_errors_total counter\n");
+        gatewayOpMetrics.values().stream()
+                .sorted(Comparator.comparing(GatewayOpMetrics::getMethod).thenComparing(GatewayOpMetrics::getName))
+                .forEach(m -> sb.append("mcp_gateway_errors_total{method=\"")
+                        .append(escapeLabel(m.getMethod())).append("\",name=\"")
+                        .append(escapeLabel(m.getName())).append("\"} ")
+                        .append(m.errors()).append('\n'));
+
+        sb.append("# HELP mcp_gateway_latency_ms Average gateway route latency in milliseconds.\n");
+        sb.append("# TYPE mcp_gateway_latency_ms gauge\n");
+        gatewayOpMetrics.values().stream()
+                .sorted(Comparator.comparing(GatewayOpMetrics::getMethod).thenComparing(GatewayOpMetrics::getName))
+                .forEach(m -> {
+                    long total = m.totalInvocations();
+                    double avg = total > 0 ? gatewayOpAvgLatencyMs(m) : 0;
+                    sb.append("mcp_gateway_latency_ms{method=\"")
+                            .append(escapeLabel(m.getMethod())).append("\",name=\"")
+                            .append(escapeLabel(m.getName())).append("\"} ")
+                            .append(formatDouble(avg)).append('\n');
+                });
+
+        sb.append("# HELP mcp_build_info MCP Enterprise build information.\n");
+        sb.append("# TYPE mcp_build_info gauge\n");
+        sb.append("mcp_build_info{version=\"1.1.0\"} 1\n");
+        return sb.toString();
+    }
+
+    /** Prometheus 标签值转义（\ → \\，" → \"，\n → \\n） */
+    private static String escapeLabel(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n");
+    }
+
+    /** 浮点格式化：去掉尾部无效 0，整数不带小数点 */
+    private static String formatDouble(double value) {
+        if (value == Math.rint(value) && !Double.isInfinite(value)) {
+            return String.valueOf((long) value);
+        }
+        return String.format(Locale.ROOT, "%.3f", value);
+    }
+
+    /** 网关操作平均延迟（供 Prometheus 导出使用） */
+    public double gatewayOpAvgLatencyMs(GatewayOpMetrics m) {
+        long total = m.totalInvocations();
+        return total > 0 ? (double) m.totalLatencyMs.get() / total : 0;
+    }
+
     // ===== 内部类 =====
 
     /**

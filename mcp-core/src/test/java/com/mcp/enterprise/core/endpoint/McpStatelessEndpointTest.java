@@ -469,4 +469,57 @@ class McpStatelessEndpointTest {
         assertEquals("global", caching.get("cacheScope"));
         assertEquals(Boolean.TRUE, caching.get("deterministicOrder"));
     }
+
+    // ===== V1.7: 网关按操作限流集成测试 =====
+
+    @Test
+    void shouldRateLimitToolsListPerDefaultRule() {
+        // 默认规则 tools/list: 5 QPS
+        for (int i = 0; i < 5; i++) {
+            Map<String, Object> resp = endpoint.handleStatelessMessage(
+                    Map.of("jsonrpc", "2.0", "id", i, "method", "tools/list", "params", Map.of()), "t1");
+            assertFalse(resp.containsKey("error"), "第 " + (i + 1) + " 次 tools/list 应放行");
+        }
+        // 第 6 次应被限流
+        Map<String, Object> limited = endpoint.handleStatelessMessage(
+                Map.of("jsonrpc", "2.0", "id", 99, "method", "tools/list", "params", Map.of()), "t1");
+        Map<String, Object> error = (Map<String, Object>) limited.get("error");
+        assertNotNull(error, "第6次 tools/list 应被限流");
+        assertEquals(-32029, error.get("code"));
+    }
+
+    @Test
+    void shouldAllowToolCallWithCustomRuleOverride() {
+        // 覆盖默认 tools/call:* = 100 → 收紧到 2 QPS
+        endpoint.getGatewayRateLimiter().addRule("tools/call", "test", 2);
+        Map<String, Object> callParams = Map.of("name", "test", "arguments", Map.of("msg", "hi"));
+
+        for (int i = 0; i < 2; i++) {
+            Map<String, Object> resp = endpoint.handleStatelessMessage(
+                    Map.of("jsonrpc", "2.0", "id", i, "method", "tools/call", "params", callParams), "t2");
+            assertFalse(resp.containsKey("error"), "第 " + (i + 1) + " 次 tools/call(test) 应放行");
+        }
+        // 精确规则(2 QPS)优先于通配规则(100 QPS)，第 3 次应被限流
+        Map<String, Object> limited = endpoint.handleStatelessMessage(
+                Map.of("jsonrpc", "2.0", "id", 999, "method", "tools/call", "params", callParams), "t2");
+        Map<String, Object> error = (Map<String, Object>) limited.get("error");
+        assertNotNull(error);
+        assertEquals(-32029, error.get("code"));
+    }
+
+    @Test
+    void shouldExposeRateLimiterForManagement() {
+        assertNotNull(endpoint.getGatewayRateLimiter());
+        assertTrue(endpoint.getGatewayRateLimiter().getRuleCount() >= 6);
+    }
+
+    @Test
+    void shouldClearRateLimitRulesAllowsAll() {
+        endpoint.getGatewayRateLimiter().clearRules();
+        for (int i = 0; i < 50; i++) {
+            Map<String, Object> resp = endpoint.handleStatelessMessage(
+                    Map.of("jsonrpc", "2.0", "id", i, "method", "tools/list", "params", Map.of()), "t3");
+            assertFalse(resp.containsKey("error"));
+        }
+    }
 }

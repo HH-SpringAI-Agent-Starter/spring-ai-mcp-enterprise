@@ -259,4 +259,79 @@ public class McpStatelessController {
                 "connectedStreams", streamEmitters.size()
         );
     }
+
+    // ===== V1.7: 网关限流路由表管理端点 =====
+    // 2026-07-28 规范「网关按操作限流」的运行时管理面：
+    // 无需重启即可按 Mcp-Method / Mcp-Name 调整各操作 QPS。
+
+    /**
+     * 获取当前限流规则列表
+     */
+    @GetMapping("/ratelimit/rules")
+    public Map<String, Object> getRateLimitRules() {
+        var limiter = statelessEndpoint.getGatewayRateLimiter();
+        return Map.of(
+                "enabled", limiter.isEnabled(),
+                "rules", limiter.getRuleSnapshot(),
+                "total", limiter.getRuleCount()
+        );
+    }
+
+    /**
+     * 新增/更新限流规则
+     * <p>
+     * 请求体：{"method": "tools/call", "name": "greet", "maxPerSecond": 10}
+     * name 支持通配符 *（greet、finance_*、*）；空串表示无 name 的操作。
+     */
+    @PostMapping("/ratelimit/rules")
+    public Map<String, Object> addRateLimitRule(@RequestBody Map<String, Object> rule) {
+        String method = rule != null ? String.valueOf(rule.getOrDefault("method", "*")) : "*";
+        String name = rule != null && rule.get("name") != null ? String.valueOf(rule.get("name")) : "*";
+        int maxPerSecond;
+        try {
+            maxPerSecond = rule != null && rule.get("maxPerSecond") != null
+                    ? ((Number) rule.get("maxPerSecond")).intValue()
+                    : 10;
+        } catch (ClassCastException e) {
+            return McpStatelessEndpoint.errorResponse(null, -32602, "maxPerSecond must be a number");
+        }
+        if (maxPerSecond <= 0) {
+            return McpStatelessEndpoint.errorResponse(null, -32602, "maxPerSecond must be positive");
+        }
+        statelessEndpoint.getGatewayRateLimiter().addRule(method, name, maxPerSecond);
+        return Map.of("status", "ok", "rule", Map.of("method", method, "name", name, "maxPerSecond", maxPerSecond));
+    }
+
+    /**
+     * 删除限流规则（query: method + name）
+     */
+    @DeleteMapping("/ratelimit/rules")
+    public Map<String, Object> removeRateLimitRule(
+            @RequestParam String method,
+            @RequestParam(required = false, defaultValue = "") String name) {
+        boolean removed = statelessEndpoint.getGatewayRateLimiter().removeRule(method, name);
+        return Map.of("status", removed ? "removed" : "not-found", "method", method, "name", name);
+    }
+
+    /**
+     * 清空所有限流规则（谨慎操作：恢复为全放行）
+     */
+    @DeleteMapping("/ratelimit/rules/all")
+    public Map<String, Object> clearRateLimitRules() {
+        statelessEndpoint.getGatewayRateLimiter().clearRules();
+        return Map.of("status", "cleared", "total", 0);
+    }
+
+    /**
+     * 切换限流开关
+     * 请求体：{"enabled": false}
+     */
+    @PostMapping("/ratelimit/toggle")
+    public Map<String, Object> toggleRateLimit(@RequestBody Map<String, Object> body) {
+        boolean enabled = body != null && body.get("enabled") != null
+                ? Boolean.parseBoolean(String.valueOf(body.get("enabled")))
+                : true;
+        statelessEndpoint.getGatewayRateLimiter().setEnabled(enabled);
+        return Map.of("status", "ok", "enabled", enabled);
+    }
 }

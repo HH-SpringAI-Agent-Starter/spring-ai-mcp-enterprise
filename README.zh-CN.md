@@ -391,6 +391,8 @@ A: 最小配置 256MB 内存 + 1 核 CPU 即可运行。推荐生产配置 1GB �
 - [x] **V1.3 金融场景模板 tool-finance**
 - [x] **V1.4 金融模板二期：合规日历 + 风险评分**
 - [x] **V1.5 2026-07-28 网关友好：Mcp-Method/Mcp-Name 标头 + ttlMs/cacheScope + 确定性排序**
+- [x] **V1.6 网关路由监控指标（Mcp-Method/Mcp-Name 维度）**
+- [x] **V1.7 网关限流路由表 + Prometheus 指标导出**
 - [ ] V0.13 MCP Apps 子协议支持
 - [ ] V0.14 更多工具：Redis、Kafka、文件系统
 - [ ] V0.15 WebSocket 传输支持
