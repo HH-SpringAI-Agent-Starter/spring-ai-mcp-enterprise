@@ -1,5 +1,8 @@
 # ===========================================
 # Prometheus 监控配置（配合 docker-compose）
+# V1.7: 指标路径指向 mcp-monitor 自建 Prometheus 端点
+#   /api/monitor/metrics/prometheus（OpenMetrics 文本格式）
+# 无需额外依赖 micrometer-registry-prometheus
 # ===========================================
 global:
   scrape_interval: 15s
@@ -7,7 +10,7 @@ global:
 
 scrape_configs:
   - job_name: "mcp-enterprise-server"
-    metrics_path: "/actuator/prometheus"
+    metrics_path: "/api/monitor/metrics/prometheus"
     static_configs:
       - targets: ["mcp-server:8081"]
         labels:
