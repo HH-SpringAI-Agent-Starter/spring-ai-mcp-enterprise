@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -61,6 +62,19 @@ public class McpMonitorController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(metrics.toMap());
+    }
+
+    // ===== V1.6: 网关路由指标（Mcp-Method / Mcp-Name 标头维度） =====
+
+    @GetMapping("/metrics/gateway")
+    public ResponseEntity<Map<String, Object>> getGatewayMetrics() {
+        return ResponseEntity.ok(metricsCollector.getGatewayMetricsSnapshot());
+    }
+
+    @DeleteMapping("/metrics/gateway")
+    public ResponseEntity<Map<String, Object>> resetGatewayMetrics() {
+        metricsCollector.resetGatewayMetrics();
+        return ResponseEntity.ok(Map.of("status", "reset", "timestamp", Instant.now().toString()));
     }
 
     // ===== 审计 =====

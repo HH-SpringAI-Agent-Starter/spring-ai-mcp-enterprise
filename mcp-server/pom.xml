@@ -23,6 +23,12 @@
             <artifactId>mcp-auth</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- V1.6: 接入 mcp-monitor（指标/审计/告警端点，默认自动启用） -->
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-monitor</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.mcp.enterprise</groupId>
             <artifactId>mcp-tool-http</artifactId>

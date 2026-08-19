@@ -1,8 +1,10 @@
 package com.mcp.enterprise.server.endpoint;
 
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
+import com.mcp.enterprise.monitor.McpMetricsCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -38,6 +40,10 @@ public class McpStatelessController {
 
     private final McpStatelessEndpoint statelessEndpoint;
     private final Map<String, SseEmitter> streamEmitters = new ConcurrentHashMap<>();
+
+    /** V1.6: 网关路由指标采集器（mcp-monitor 在 classpath 时注入，否则为 null 静默降级） */
+    @Autowired(required = false)
+    private McpMetricsCollector metricsCollector;
 
     public McpStatelessController(McpStatelessEndpoint statelessEndpoint) {
         this.statelessEndpoint = statelessEndpoint;
@@ -76,10 +82,30 @@ public class McpStatelessController {
         Map<String, Object> validationError = statelessEndpoint.validateGatewayHeaders(mcpMethod, mcpName, message);
         if (validationError != null) {
             log.warn("MCP transport validation failed: Mcp-Method={}, Mcp-Name={}", mcpMethod, mcpName);
+            recordGatewayMetric(mcpMethod, mcpName, 0L, false);
             return validationError;
         }
 
-        return statelessEndpoint.handleStatelessMessage(message, traceId);
+        long start = System.currentTimeMillis();
+        Map<String, Object> response = statelessEndpoint.handleStatelessMessage(message, traceId);
+        recordGatewayMetric(mcpMethod, mcpName, System.currentTimeMillis() - start, true);
+        return response;
+    }
+
+    /**
+     * V1.6: 记录网关路由指标（Mcp-Method/Mcp-Name 标头维度）
+     * 供 API 网关按操作限流/授权的流量观测：GET /api/monitor/metrics/gateway
+     *
+     * @param mcpMethod Mcp-Method 标头值
+     * @param mcpName   Mcp-Name 标头值（可为空）
+     * @param latencyMs 处理耗时（毫秒）
+     * @param success   是否成功
+     */
+    private void recordGatewayMetric(String mcpMethod, String mcpName, long latencyMs, boolean success) {
+        if (metricsCollector == null) {
+            return;
+        }
+        metricsCollector.recordGatewayInvocation(mcpMethod, mcpName, latencyMs, success);
     }
 
     /**

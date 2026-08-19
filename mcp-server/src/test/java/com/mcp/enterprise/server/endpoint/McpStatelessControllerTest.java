@@ -59,7 +59,7 @@ class McpStatelessControllerTest {
         Map<String, Object> message = Map.of(
                 "jsonrpc", "2.0", "id", "1", "method", "ping"
         );
-        Map<String, Object> response = controller.handleStatelessMessage(message, null, null);
+        Map<String, Object> response = controller.handleStatelessMessage(message, null, null, null, null);
         assertNotNull(response);
         assertTrue(response.containsKey("result"));
     }
@@ -151,13 +151,38 @@ class McpStatelessControllerTest {
         Map<String, Object> message = Map.of(
                 "jsonrpc", "2.0", "id", "1", "method", "ping"
         );
-        Map<String, Object> response = controller.handleStatelessMessage(message, "trace-id-001", null);
+        Map<String, Object> response = controller.handleStatelessMessage(message, "trace-id-001", null, null, null);
         assertEquals("trace-id-001", response.get("_traceId"));
     }
 
     @Test
     void handleMessageShouldHandleNullBody() {
-        Map<String, Object> response = controller.handleStatelessMessage(null, null, null);
+        Map<String, Object> response = controller.handleStatelessMessage(null, null, null, null, null);
+        assertTrue(response.containsKey("error"));
+    }
+
+    // ===== V1.6: 网关友好标头（Mcp-Method / Mcp-Name） =====
+
+    @Test
+    void handleMessageWithGatewayHeadersShouldPassValidation() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0", "id", "1", "method", "tools/call",
+                "params", Map.of("name", "greet")
+        );
+        // Mcp-Method=tools/call + Mcp-Name=greet 与请求体一致 → 正常处理
+        Map<String, Object> response = controller.handleStatelessMessage(message, null, null, "tools/call", "greet");
+        assertNotNull(response);
+        assertFalse(response.containsKey("error"));
+    }
+
+    @Test
+    void handleMessageWithMismatchedGatewayHeaderShouldFailValidation() {
+        Map<String, Object> message = Map.of(
+                "jsonrpc", "2.0", "id", "1", "method", "tools/list"
+        );
+        // Mcp-Method=tools/call 与请求体 tools/list 不一致 → 拒绝（防标头掩盖）
+        Map<String, Object> response = controller.handleStatelessMessage(message, null, null, "tools/call", null);
+        assertNotNull(response);
         assertTrue(response.containsKey("error"));
     }
 }

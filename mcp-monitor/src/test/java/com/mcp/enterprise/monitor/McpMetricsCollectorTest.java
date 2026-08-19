@@ -3,6 +3,8 @@ package com.mcp.enterprise.monitor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -73,5 +75,61 @@ class McpMetricsCollectorTest {
         assertEquals(1L, summary.get("totalErrors"));
         assertNotNull(summary.get("avgLatencyMs"));
         assertNotNull(summary.get("timestamp"));
+    }
+
+    // ===== V1.6: 网关路由指标（Mcp-Method / Mcp-Name 标头维度） =====
+
+    @Test
+    void testGatewayInvocationRecording() {
+        collector.recordGatewayInvocation("tools/call", "greet", 120, true);
+        collector.recordGatewayInvocation("tools/call", "greet", 80, true);
+        collector.recordGatewayInvocation("tools/call", "greet", 50, false);
+        collector.recordGatewayInvocation("tools/list", "", 5, true);
+
+        var snapshot = collector.getGatewayMetricsSnapshot();
+        @SuppressWarnings("unchecked")
+        var operations = (java.util.List<Map<String, Object>>) snapshot.get("operations");
+
+        assertEquals(2, operations.size());
+        assertEquals(4L, snapshot.get("totalInvocations"));
+
+        // 确定性排序：tools/call 在 tools/list 之前
+        assertEquals("tools/call", operations.get(0).get("method"));
+        assertEquals("tools/list", operations.get(1).get("method"));
+
+        // greet 维度：3 次调用 1 次错误
+        var greet = operations.get(0);
+        assertEquals(3L, greet.get("totalInvocations"));
+        assertEquals(1L, greet.get("errors"));
+        assertTrue(((String) greet.get("errorRate")).contains("33.33"));
+    }
+
+    @Test
+    void testGatewayInvocationWithNullMethodDefaultsToUnknown() {
+        collector.recordGatewayInvocation(null, null, 10, true);
+
+        var snapshot = collector.getGatewayMetricsSnapshot();
+        @SuppressWarnings("unchecked")
+        var operations = (java.util.List<Map<String, Object>>) snapshot.get("operations");
+        assertEquals(1, operations.size());
+        assertEquals("unknown", operations.get(0).get("method"));
+    }
+
+    @Test
+    void testGatewayMetricsReset() {
+        collector.recordGatewayInvocation("ping", "", 1, true);
+        assertEquals(1, ((java.util.List<?>) collector.getGatewayMetricsSnapshot().get("operations")).size());
+
+        collector.resetGatewayMetrics();
+        assertEquals(0, ((java.util.List<?>) collector.getGatewayMetricsSnapshot().get("operations")).size());
+    }
+
+    @Test
+    void testSummaryIncludesGatewayMetrics() {
+        collector.recordGatewayInvocation("tools/call", "greet", 100, true);
+
+        var summary = collector.getSummarySnapshot();
+        assertEquals(1L, summary.get("gatewayInvocations"));
+        assertEquals(1, summary.get("gatewayOperations"));
     }
 }

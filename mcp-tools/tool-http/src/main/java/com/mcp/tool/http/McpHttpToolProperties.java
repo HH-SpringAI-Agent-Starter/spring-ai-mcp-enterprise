@@ -1,7 +1,6 @@
 package com.mcp.tool.http;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +24,6 @@ import java.util.List;
  *
  * <p>安全设计：未配置白名单时默认仅允许 localhost/127.0.0.1，防止 SSRF 风险。</p>
  */
-@Component
 @ConfigurationProperties(prefix = "mcp.tool.http")
 public class McpHttpToolProperties {
 

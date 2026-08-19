@@ -3,6 +3,7 @@ package com.mcp.enterprise.examples.client;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -20,6 +21,10 @@ import org.springframework.web.client.RestTemplate;
  *   java -jar mcp-client-spring-ai.jar
  */
 @SpringBootApplication
+@ComponentScan(basePackages = {
+        "com.mcp.enterprise.examples.client",
+        "com.mcp.enterprise.examples.springai"   // 工具配置 + Agent 控制器
+})
 public class McpSpringAiClientApplication {
 
     public static void main(String[] args) {
