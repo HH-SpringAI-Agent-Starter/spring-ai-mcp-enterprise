@@ -20,8 +20,6 @@ mcp:
     registry:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
-
-mcp:
   tool:
     http:
       enabled: true

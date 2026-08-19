@@ -2,6 +2,7 @@ package com.mcp.enterprise.autoconfigure;
 
 import com.mcp.enterprise.core.endpoint.McpAdminEndpoint;
 import com.mcp.enterprise.core.endpoint.McpSseEndpoint;
+import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import com.mcp.enterprise.core.registry.ToolRegistry;
 import com.mcp.enterprise.core.security.McpSecurityManager;
 import com.mcp.enterprise.core.tool.McpToolExecutor;
@@ -77,6 +78,15 @@ public class McpEnterpriseAutoConfiguration {
     @ConditionalOnMissingBean
     public McpSseEndpoint mcpSseEndpoint(ToolRegistry registry, McpToolManager toolManager) {
         return new McpSseEndpoint(registry, toolManager);
+    }
+
+    // ===== V1.6: 无状态核心端点（McpStatelessEndpoint）======
+    // Streamable HTTP 2026-07-28 无状态传输：每个请求独立，无需 session
+    // 网关友好标头（Mcp-Method / Mcp-Name） + 传输验证 + ttlMs/cacheScope 缓存控制
+    @Bean
+    @ConditionalOnMissingBean
+    public McpStatelessEndpoint mcpStatelessEndpoint(ToolRegistry registry, McpToolManager toolManager) {
+        return new McpStatelessEndpoint(registry, toolManager);
     }
 
     @Bean

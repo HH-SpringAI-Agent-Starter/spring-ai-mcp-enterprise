@@ -1,6 +1,7 @@
 package com.mcp.enterprise.core.endpoint;
 
 import com.mcp.enterprise.core.model.ToolDefinition;
+import com.mcp.enterprise.core.ratelimit.GatewayRateLimitManager;
 import com.mcp.enterprise.core.registry.ToolRegistry;
 import com.mcp.enterprise.core.tool.McpToolManager;
 import org.slf4j.Logger;
@@ -34,6 +35,9 @@ public class McpStatelessEndpoint {
 
     private final ToolRegistry registry;
     private final McpToolManager toolManager;
+
+    /** V1.7: 网关限流路由表（按 Mcp-Method/Mcp-Name 维度限流，2026-07-28 规范落地） */
+    private final GatewayRateLimitManager gatewayRateLimiter = new GatewayRateLimitManager();
 
     /** 2026-07-28 协议版本声明 */
     public static final String MCP_2026_PROTOCOL_VERSION = "2026-07-28";
@@ -132,6 +136,24 @@ public class McpStatelessEndpoint {
     public McpStatelessEndpoint(ToolRegistry registry, McpToolManager toolManager) {
         this.registry = registry;
         this.toolManager = toolManager;
+        initDefaultRateLimitRules();
+    }
+
+    /**
+     * V1.7: 默认网关限流规则（可通过管理端点或配置覆盖）
+     * - tools/list: 5 QPS（目录拉取防刷）
+     * - ping: 20 QPS（健康探测防刷）
+     * - tools/call: 100 QPS（所有工具调用总上限）
+     * - initialize/server/discover: 10 QPS
+     */
+    private void initDefaultRateLimitRules() {
+        gatewayRateLimiter.addRule("tools/list", "*", 5);
+        gatewayRateLimiter.addRule("tools/listChanged", "*", 5);
+        gatewayRateLimiter.addRule("ping", "", 20);
+        gatewayRateLimiter.addRule("tools/call", "*", 100);
+        gatewayRateLimiter.addRule("initialize", "", 10);
+        gatewayRateLimiter.addRule("server/discover", "", 10);
+        gatewayRateLimiter.addRule("tools/discover", "*", 10);
     }
 
     // ===== 无状态消息处理 (2026-07-28) =====
@@ -149,6 +171,18 @@ public class McpStatelessEndpoint {
         Object id = message.get("id");
         @SuppressWarnings("unchecked")
         Map<String, Object> params = (Map<String, Object>) message.getOrDefault("params", Map.of());
+
+        // V1.7: 按操作限流（网关路由表）。仅凭 method/name 即可决策，无需解析请求体。
+        // 命中限流规则且超出配额 → 429 Too Many Requests
+        String opName = params != null ? String.valueOf(params.getOrDefault("name", "")) : "";
+        if (!gatewayRateLimiter.checkRateLimit(method, opName)) {
+            log.warn("⛔ 网关限流拒绝: method={}, name={}, traceId={}", method, opName, traceId);
+            Map<String, Object> error = errorResponse(id, -32029, "Rate limit exceeded");
+            if (traceId != null) {
+                error.put("_traceId", traceId);
+            }
+            return error;
+        }
 
         log.debug("MCP 无状态消息: method={}, id={}, traceId={}", method, id, traceId);
 
@@ -264,6 +298,11 @@ public class McpStatelessEndpoint {
         }
 
         return successResponse(id, toolResult);
+    }
+
+    /** V1.7: 获取网关限流路由表（管理端点用） */
+    public GatewayRateLimitManager getGatewayRateLimiter() {
+        return gatewayRateLimiter;
     }
 
     // ===== 工具方法 =====

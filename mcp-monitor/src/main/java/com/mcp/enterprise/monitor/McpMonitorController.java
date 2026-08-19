@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -14,6 +15,8 @@ import java.util.Map;
  * 端点：
  *   GET  /api/monitor/metrics       — 获取全量聚合指标
  *   GET  /api/monitor/metrics/{tool} — 获取指定工具指标
+ *   GET  /api/monitor/metrics/gateway — 获取网关路由指标（V1.6）
+ *   GET  /api/monitor/metrics/prometheus — Prometheus 文本格式导出（V1.7）
  *   GET  /api/monitor/audit          — 获取最近审计日志
  *   GET  /api/monitor/audit/failed   — 获取失败审计记录
  *   GET  /api/monitor/alerts         — 获取活跃告警
@@ -61,6 +64,28 @@ public class McpMonitorController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(metrics.toMap());
+    }
+
+    // ===== V1.6: 网关路由指标（Mcp-Method / Mcp-Name 标头维度） =====
+
+    @GetMapping("/metrics/gateway")
+    public ResponseEntity<Map<String, Object>> getGatewayMetrics() {
+        return ResponseEntity.ok(metricsCollector.getGatewayMetricsSnapshot());
+    }
+
+    @DeleteMapping("/metrics/gateway")
+    public ResponseEntity<Map<String, Object>> resetGatewayMetrics() {
+        metricsCollector.resetGatewayMetrics();
+        return ResponseEntity.ok(Map.of("status", "reset", "timestamp", Instant.now().toString()));
+    }
+
+    // ===== V1.7: Prometheus 导出（对接 Prometheus/Grafana 可观测性栈） =====
+
+    @GetMapping(value = "/metrics/prometheus", produces = "text/plain; version=0.0.4; charset=utf-8")
+    public ResponseEntity<String> prometheusMetrics() {
+        return ResponseEntity.ok()
+                .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                .body(metricsCollector.exportPrometheus());
     }
 
     // ===== 审计 =====

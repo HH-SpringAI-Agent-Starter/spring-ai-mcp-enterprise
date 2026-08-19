@@ -1,8 +1,10 @@
 package com.mcp.enterprise.server.endpoint;
 
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
+import com.mcp.enterprise.monitor.McpMetricsCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -38,6 +40,10 @@ public class McpStatelessController {
 
     private final McpStatelessEndpoint statelessEndpoint;
     private final Map<String, SseEmitter> streamEmitters = new ConcurrentHashMap<>();
+
+    /** V1.6: 网关路由指标采集器（mcp-monitor 在 classpath 时注入，否则为 null 静默降级） */
+    @Autowired(required = false)
+    private McpMetricsCollector metricsCollector;
 
     public McpStatelessController(McpStatelessEndpoint statelessEndpoint) {
         this.statelessEndpoint = statelessEndpoint;
@@ -76,10 +82,30 @@ public class McpStatelessController {
         Map<String, Object> validationError = statelessEndpoint.validateGatewayHeaders(mcpMethod, mcpName, message);
         if (validationError != null) {
             log.warn("MCP transport validation failed: Mcp-Method={}, Mcp-Name={}", mcpMethod, mcpName);
+            recordGatewayMetric(mcpMethod, mcpName, 0L, false);
             return validationError;
         }
 
-        return statelessEndpoint.handleStatelessMessage(message, traceId);
+        long start = System.currentTimeMillis();
+        Map<String, Object> response = statelessEndpoint.handleStatelessMessage(message, traceId);
+        recordGatewayMetric(mcpMethod, mcpName, System.currentTimeMillis() - start, true);
+        return response;
+    }
+
+    /**
+     * V1.6: 记录网关路由指标（Mcp-Method/Mcp-Name 标头维度）
+     * 供 API 网关按操作限流/授权的流量观测：GET /api/monitor/metrics/gateway
+     *
+     * @param mcpMethod Mcp-Method 标头值
+     * @param mcpName   Mcp-Name 标头值（可为空）
+     * @param latencyMs 处理耗时（毫秒）
+     * @param success   是否成功
+     */
+    private void recordGatewayMetric(String mcpMethod, String mcpName, long latencyMs, boolean success) {
+        if (metricsCollector == null) {
+            return;
+        }
+        metricsCollector.recordGatewayInvocation(mcpMethod, mcpName, latencyMs, success);
     }
 
     /**
@@ -232,5 +258,80 @@ public class McpStatelessController {
                 "transport", "streamable-http",
                 "connectedStreams", streamEmitters.size()
         );
+    }
+
+    // ===== V1.7: 网关限流路由表管理端点 =====
+    // 2026-07-28 规范「网关按操作限流」的运行时管理面：
+    // 无需重启即可按 Mcp-Method / Mcp-Name 调整各操作 QPS。
+
+    /**
+     * 获取当前限流规则列表
+     */
+    @GetMapping("/ratelimit/rules")
+    public Map<String, Object> getRateLimitRules() {
+        var limiter = statelessEndpoint.getGatewayRateLimiter();
+        return Map.of(
+                "enabled", limiter.isEnabled(),
+                "rules", limiter.getRuleSnapshot(),
+                "total", limiter.getRuleCount()
+        );
+    }
+
+    /**
+     * 新增/更新限流规则
+     * <p>
+     * 请求体：{"method": "tools/call", "name": "greet", "maxPerSecond": 10}
+     * name 支持通配符 *（greet、finance_*、*）；空串表示无 name 的操作。
+     */
+    @PostMapping("/ratelimit/rules")
+    public Map<String, Object> addRateLimitRule(@RequestBody Map<String, Object> rule) {
+        String method = rule != null ? String.valueOf(rule.getOrDefault("method", "*")) : "*";
+        String name = rule != null && rule.get("name") != null ? String.valueOf(rule.get("name")) : "*";
+        int maxPerSecond;
+        try {
+            maxPerSecond = rule != null && rule.get("maxPerSecond") != null
+                    ? ((Number) rule.get("maxPerSecond")).intValue()
+                    : 10;
+        } catch (ClassCastException e) {
+            return McpStatelessEndpoint.errorResponse(null, -32602, "maxPerSecond must be a number");
+        }
+        if (maxPerSecond <= 0) {
+            return McpStatelessEndpoint.errorResponse(null, -32602, "maxPerSecond must be positive");
+        }
+        statelessEndpoint.getGatewayRateLimiter().addRule(method, name, maxPerSecond);
+        return Map.of("status", "ok", "rule", Map.of("method", method, "name", name, "maxPerSecond", maxPerSecond));
+    }
+
+    /**
+     * 删除限流规则（query: method + name）
+     */
+    @DeleteMapping("/ratelimit/rules")
+    public Map<String, Object> removeRateLimitRule(
+            @RequestParam String method,
+            @RequestParam(required = false, defaultValue = "") String name) {
+        boolean removed = statelessEndpoint.getGatewayRateLimiter().removeRule(method, name);
+        return Map.of("status", removed ? "removed" : "not-found", "method", method, "name", name);
+    }
+
+    /**
+     * 清空所有限流规则（谨慎操作：恢复为全放行）
+     */
+    @DeleteMapping("/ratelimit/rules/all")
+    public Map<String, Object> clearRateLimitRules() {
+        statelessEndpoint.getGatewayRateLimiter().clearRules();
+        return Map.of("status", "cleared", "total", 0);
+    }
+
+    /**
+     * 切换限流开关
+     * 请求体：{"enabled": false}
+     */
+    @PostMapping("/ratelimit/toggle")
+    public Map<String, Object> toggleRateLimit(@RequestBody Map<String, Object> body) {
+        boolean enabled = body != null && body.get("enabled") != null
+                ? Boolean.parseBoolean(String.valueOf(body.get("enabled")))
+                : true;
+        statelessEndpoint.getGatewayRateLimiter().setEnabled(enabled);
+        return Map.of("status", "ok", "enabled", enabled);
     }
 }
