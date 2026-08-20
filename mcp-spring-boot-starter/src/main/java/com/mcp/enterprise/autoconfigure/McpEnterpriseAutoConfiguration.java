@@ -4,6 +4,7 @@ import com.mcp.enterprise.core.endpoint.McpAdminEndpoint;
 import com.mcp.enterprise.core.endpoint.McpSseEndpoint;
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import com.mcp.enterprise.core.registry.ToolRegistry;
+import com.mcp.enterprise.core.security.McpOAuth2Manager;
 import com.mcp.enterprise.core.security.McpSecurityManager;
 import com.mcp.enterprise.core.tool.McpToolExecutor;
 import com.mcp.enterprise.core.tool.McpToolManager;
@@ -49,6 +50,21 @@ public class McpEnterpriseAutoConfiguration {
             manager.setMaxAuditLogSize(properties.getSecurity().getAuditLogMaxSize());
         }
         log.info("🔒 初始化 MCP SecurityManager");
+        return manager;
+    }
+
+    // ===== V1.8: OAuth2 Client Credentials + EMA 管理器 =====
+    // 为 M2M 场景提供短时令牌，替代长期共享 API Key；可委托企业 IdP 做集中授权（EMA）
+    @Bean
+    @ConditionalOnMissingBean
+    public McpOAuth2Manager mcpOAuth2Manager(McpEnterpriseProperties properties) {
+        String signingKey = properties.getOauth2().getSigningKey();
+        McpOAuth2Manager manager = new McpOAuth2Manager(signingKey);
+        long ttl = properties.getOauth2().getTokenTtlSeconds();
+        if (ttl > 0) {
+            manager.setTokenTtlSeconds(ttl);
+        }
+        log.info("🔐 初始化 MCP OAuth2 Manager (token_ttl={}s)", manager.getTokenTtlSeconds());
         return manager;
     }
 

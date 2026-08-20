@@ -26,6 +26,7 @@ public class McpEnterpriseProperties {
     private Security security = new Security();
     private Monitor monitor = new Monitor();
     private Registry registry = new Registry();
+    private OAuth2 oauth2 = new OAuth2();
 
     public static class Server {
         private int port = 8081;
@@ -75,6 +76,19 @@ public class McpEnterpriseProperties {
         public void setScanPackages(String scanPackages) { this.scanPackages = scanPackages; }
     }
 
+    // ===== V1.8: OAuth2 Client Credentials + EMA =====
+    public static class OAuth2 {
+        private boolean enabled = true;
+        private String signingKey = "change-me-in-production-oauth2-signing-key";
+        private long tokenTtlSeconds = 3600;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getSigningKey() { return signingKey; }
+        public void setSigningKey(String signingKey) { this.signingKey = signingKey; }
+        public long getTokenTtlSeconds() { return tokenTtlSeconds; }
+        public void setTokenTtlSeconds(long tokenTtlSeconds) { this.tokenTtlSeconds = tokenTtlSeconds; }
+    }
+
     public Server getServer() { return server; }
     public void setServer(Server server) { this.server = server; }
     public Security getSecurity() { return security; }
@@ -83,4 +97,6 @@ public class McpEnterpriseProperties {
     public void setMonitor(Monitor monitor) { this.monitor = monitor; }
     public Registry getRegistry() { return registry; }
     public void setRegistry(Registry registry) { this.registry = registry; }
+    public OAuth2 getOauth2() { return oauth2; }
+    public void setOauth2(OAuth2 oauth2) { this.oauth2 = oauth2; }
 }

@@ -129,3 +129,34 @@ curl -s -X POST "${BASE_URL}/api/mcp/v2/tools/call" \
   -d '{"name":"system_info","arguments":{}}' | python3 -m json.tool
 echo ""
 echo "鉁?Streamable HTTP 绀轰緥瀹屾垚!"
+# ==================================================
+# 17️⃣ V1.8: OAuth2 Client Credentials + EMA 示例
+# ==================================================
+echo "🔐 17. 注册 OAuth2 客户端（一次性返回明文 client_secret）"
+CLIENT_RESP=$(curl -s -X POST "${BASE_URL}/oauth2/clients" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "clientId=mcp-agent-1&owner=data-team&roles=user&scopes=tools:read tools:call")
+echo "$CLIENT_RESP" | python3 -m json.tool
+CLIENT_SECRET=$(echo "$CLIENT_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['client_secret'])")
+
+echo ""
+echo "🔑 18. 换取短时 access_token（client_credentials）"
+OAUTH_RESP=$(curl -s -X POST "${BASE_URL}/oauth2/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=mcp-agent-1&client_secret=${CLIENT_SECRET}&scope=tools:read tools:call")
+echo "$OAUTH_RESP" | python3 -m json.tool
+OAUTH_TOKEN=$(echo "$OAUTH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo ""
+echo "🔎 19. 令牌内省（RFC 7662）— 网关/资源服务器校验"
+curl -s "${BASE_URL}/oauth2/introspect?token=${OAUTH_TOKEN}" | python3 -m json.tool
+
+echo ""
+echo "🎯 20. 用 Bearer access_token 调用 MCP 工具"
+curl -s -X POST "${BASE_URL}/api/mcp/v2/tools/call" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${OAUTH_TOKEN}" \
+  -d '{"name":"system_info","arguments":{}}' | python3 -m json.tool
+
+echo ""
+echo "✅ OAuth2 client_credentials 示例完成！"

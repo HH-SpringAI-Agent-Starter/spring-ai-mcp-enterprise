@@ -331,6 +331,7 @@ docker compose --profile full up -d
 | **V1.5** | **2026-07-28 最终版网关友好：Mcp-Method/Mcp-Name 标头 + 传输验证 + ttlMs/cacheScope + 确定性排序** | ✅ 已完成 |
 | **V1.6** | **网关路由监控指标（Mcp-Method/Mcp-Name 维度）+ Dockerfile Java17 对齐** | ✅ 已完成 |
 | **V1.7** | **网关限流路由表（按操作 QPS 运行时管理）+ Prometheus 指标导出** | ✅ 已完成 |
+| **V1.8** | **OAuth2 Client Credentials 短时凭证 + EMA 企业集中授权（Token/Introspect/吊销）+ 市场调研 08-20** | ✅ 已完成 |
 
 ---
 
