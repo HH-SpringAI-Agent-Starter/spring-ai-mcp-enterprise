@@ -32,6 +32,8 @@ public class McpOAuth2Manager {
     private static final String HMAC_ALGO = "HmacSHA256";
     /** 默认令牌有效期（秒） */
     private static final long DEFAULT_TOKEN_TTL_SECONDS = 3600;
+    /** 默认 refresh token 有效期（秒）：30 天 */
+    private static final long DEFAULT_REFRESH_TTL_SECONDS = 30L * 24 * 3600;
 
     /** 客户端注册表：clientId -> Client */
     private final Map<String, Client> clients = new ConcurrentHashMap<>();
@@ -39,9 +41,14 @@ public class McpOAuth2Manager {
     private final Map<String, TokenRecord> issuedTokens = new ConcurrentHashMap<>();
     /** 吊销令牌集合（过期后清理） */
     private final Set<String> revokedTokens = Collections.synchronizedSet(new HashSet<>());
+    /** 已签发 refresh token：tokenHash -> RefreshRecord（支持轮换与重用检测） */
+    private final Map<String, RefreshRecord> refreshTokens = new ConcurrentHashMap<>();
+    /** 已吊销 refresh token 家族（重用/泄露后整族失效，防重放） */
+    private final Set<String> revokedRefreshFamilies = Collections.synchronizedSet(new HashSet<>());
 
     private final byte[] signingKey;
     private long tokenTtlSeconds = DEFAULT_TOKEN_TTL_SECONDS;
+    private long refreshTokenTtlSeconds = DEFAULT_REFRESH_TTL_SECONDS;
     /** 可选：外挂企业 IdP 内省器（EMA 集中授权） */
     private TokenIntrospector externalIntrospector;
 
@@ -111,7 +118,100 @@ public class McpOAuth2Manager {
         String token = buildToken(c.clientId, grantedScopes, issuedAt, expiresAt);
         String tokenId = tokenIdOf(token);
         issuedTokens.put(tokenId, new TokenRecord(tokenId, clientId, grantedScopes, expiresAt));
-        return new TokenResponse(token, "Bearer", expiresAt - issuedAt, grantedScopes);
+        String refreshToken = issueRefreshToken(c.clientId, grantedScopes);
+        return new TokenResponse(token, "Bearer", expiresAt - issuedAt, grantedScopes, refreshToken);
+    }
+
+    // ===== 令牌刷新（refresh_token 轮换 + 重用检测） =====
+
+    /**
+     * 用 refresh_token 换发新的短期 access_token（V1.9）。
+     *
+     * <p>轮换策略（OAuth 2.0 BCP 推荐）：每次刷新都签发全新的 access_token + refresh_token，
+     * 旧 refresh_token 立即作废；若同一 refresh_token 被再次使用（重用/重放），判定为令牌泄露，
+     * 整族（family）吊销——所有该家族签发的 access/refresh token 全部失效。</p>
+     *
+     * @return 失败时返回 null（未知客户端/secret 不匹配/令牌无效过期/已吊销/重用触发家族吊销）
+     */
+    public TokenResponse refreshClientCredentialsToken(String clientId, String clientSecret, String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) return null;
+        Client c = clients.get(clientId);
+        if (c == null || !c.enabled) return null;
+        if (!MessageDigest.isEqual(
+                c.secretHash.getBytes(StandardCharsets.UTF_8),
+                sha256(clientSecret == null ? "" : clientSecret).getBytes(StandardCharsets.UTF_8))) {
+            return null;
+        }
+
+        String hash = sha256(refreshToken);
+        RefreshRecord rec = refreshTokens.get(hash);
+        long now = System.currentTimeMillis() / 1000L;
+        if (rec == null || rec.expiresAt <= now) return null;
+        if (!rec.clientId.equals(clientId)) return null;
+        if (revokedRefreshFamilies.contains(rec.familyId)) return null;
+
+        if (rec.used) {
+            // 重用检测命中：同一 refresh token 被再次使用 → 令牌已泄露，吊销整个家族
+            revokeRefreshFamily(rec.familyId);
+            return null;
+        }
+
+        // 轮换：旧 refresh token 标记 used（保留记录以便重用检测），签发新的 access + refresh
+        rec.used = true;
+        refreshTokens.put(hash, rec);
+
+        long issuedAt = now;
+        long expiresAt = issuedAt + tokenTtlSeconds;
+        String token = buildToken(c.clientId, rec.scopes, issuedAt, expiresAt);
+        String tokenId = tokenIdOf(token);
+        issuedTokens.put(tokenId, new TokenRecord(tokenId, clientId, rec.scopes, expiresAt));
+        String newRefresh = issueRefreshToken(c.clientId, rec.scopes, rec.familyId);
+        return new TokenResponse(token, "Bearer", expiresAt - issuedAt, rec.scopes, newRefresh);
+    }
+
+    /**
+     * 签发 refresh token。内部使用：随机 256-bit + SHA-256 散列存储（不落明文）。
+     * 仅记录散列，即使数据库泄露也无法反推 refresh token。
+     */
+    private String issueRefreshToken(String clientId, Set<String> scopes) {
+        return issueRefreshToken(clientId, scopes, UUID.randomUUID().toString());
+    }
+
+    private String issueRefreshToken(String clientId, Set<String> scopes, String familyId) {
+        String token = UUID.randomUUID().toString().replace("-", "") +
+                UUID.randomUUID().toString().replace("-", "") +
+                UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        long now = System.currentTimeMillis() / 1000L;
+        refreshTokens.put(sha256(token),
+                new RefreshRecord(sha256(token), familyId, clientId, scopes, now + refreshTokenTtlSeconds, false));
+        return token;
+    }
+
+    /** 吊销 refresh token（RFC 7009 /oauth2/revoke）。吊销后立即失效且不可换发。 */
+    public boolean revokeRefreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) return false;
+        String hash = sha256(refreshToken);
+        RefreshRecord rec = refreshTokens.remove(hash);
+        if (rec == null) return false;
+        if (revokedRefreshFamilies.size() > 10_000) { // 防止无限增长
+            synchronized (revokedRefreshFamilies) { revokedRefreshFamilies.clear(); }
+        }
+        revokedRefreshFamilies.add(rec.familyId);
+        return true;
+    }
+
+    /** 重用/泄露时吊销整个 refresh token 家族：该家族所有已签发 token 全部失效。 */
+    private void revokeRefreshFamily(String familyId) {
+        revokedRefreshFamilies.add(familyId);
+        refreshTokens.entrySet().removeIf(e -> e.getValue().familyId.equals(familyId));
+    }
+
+    /** 统计：当前有效（未使用、未过期）的 refresh token 数量。 */
+    public int getRefreshTokenCount() {
+        long now = System.currentTimeMillis() / 1000L;
+        return (int) refreshTokens.values().stream()
+                .filter(r -> !r.used && r.expiresAt > now && !revokedRefreshFamilies.contains(r.familyId))
+                .count();
     }
 
     // ===== 令牌校验 (Bearer Token Validation) =====
@@ -213,11 +313,18 @@ public class McpOAuth2Manager {
         this.tokenTtlSeconds = tokenTtlSeconds;
     }
 
+    public long getRefreshTokenTtlSeconds() { return refreshTokenTtlSeconds; }
+    public void setRefreshTokenTtlSeconds(long refreshTokenTtlSeconds) {
+        if (refreshTokenTtlSeconds <= 0) throw new IllegalArgumentException("Refresh TTL must be positive");
+        this.refreshTokenTtlSeconds = refreshTokenTtlSeconds;
+    }
+
     // ===== 内部工具 =====
 
     private String buildToken(String clientId, Set<String> scopes, long iat, long exp) {
         Map<String, String> claims = new LinkedHashMap<>();
         claims.put("v", "1");                       // token 版本
+        claims.put("jti", UUID.randomUUID().toString().substring(0, 12)); // 防碰撞/防重放唯一ID
         claims.put("cid", clientId);                // client id
         claims.put("scope", String.join(" ", scopes));
         claims.put("iat", String.valueOf(iat));
@@ -308,8 +415,9 @@ public class McpOAuth2Manager {
     /** 注册返回值：一次性明文 secret。 */
     public record ClientRegistration(String clientId, String clientSecret) {}
 
-    /** 令牌签发响应。 */
-    public record TokenResponse(String accessToken, String tokenType, long expiresIn, Set<String> scope) {}
+    /** 令牌签发响应。refreshToken 在 client_credentials 签发与刷新时返回（轮换制）。 */
+    public record TokenResponse(String accessToken, String tokenType, long expiresIn, Set<String> scope,
+                                String refreshToken) {}
 
     /** 令牌校验结果。 */
     public record TokenInfo(String clientId, String owner, Set<String> roles, Set<String> scopes,
@@ -317,6 +425,26 @@ public class McpOAuth2Manager {
 
     /** 已签发令牌的内存记录（用于吊销）。 */
     private record TokenRecord(String tokenId, String clientId, Set<String> scopes, long expiresAt) {}
+
+    /** refresh token 记录。used=true 表示已轮换（若再次出现即为重用/泄露）。 */
+    private static class RefreshRecord {
+        final String tokenHash;
+        final String familyId;
+        final String clientId;
+        final Set<String> scopes;
+        final long expiresAt;
+        volatile boolean used;
+
+        RefreshRecord(String tokenHash, String familyId, String clientId, Set<String> scopes,
+                      long expiresAt, boolean used) {
+            this.tokenHash = tokenHash;
+            this.familyId = familyId;
+            this.clientId = clientId;
+            this.scopes = scopes;
+            this.expiresAt = expiresAt;
+            this.used = used;
+        }
+    }
 
     /** EMA 外挂内省器接口：委托企业现有身份提供方做集中授权。 */
     public interface TokenIntrospector {

@@ -64,7 +64,11 @@ public class McpEnterpriseAutoConfiguration {
         if (ttl > 0) {
             manager.setTokenTtlSeconds(ttl);
         }
-        log.info("🔐 初始化 MCP OAuth2 Manager (token_ttl={}s)", manager.getTokenTtlSeconds());
+        long refreshTtl = properties.getOauth2().getRefreshTokenTtlSeconds();
+        if (refreshTtl > 0) {
+            manager.setRefreshTokenTtlSeconds(refreshTtl);
+        }
+        log.info("🔐 初始化 MCP OAuth2 Manager (token_ttl={}s, refresh_ttl={}s)", manager.getTokenTtlSeconds(), manager.getRefreshTokenTtlSeconds());
         return manager;
     }
 

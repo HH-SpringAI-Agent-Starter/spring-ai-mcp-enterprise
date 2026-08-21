@@ -15,8 +15,9 @@ import java.util.Set;
  *
  * <p>为企业 AI Agent / 系统间调用提供短时令牌，替代长期共享的 API Key：</p>
  * <ul>
- *   <li>{@code POST /oauth2/token} —— client_credentials 授权，签发 access_token</li>
+ *   <li>{@code POST /oauth2/token} —— client_credentials 授权，签发 access_token + refresh_token（轮换制）</li>
  *   <li>{@code GET  /oauth2/introspect} —— RFC 7662 令牌内省，供网关/资源服务器校验</li>
+ *   <li>{@code POST /oauth2/revoke} —— RFC 7009 令牌吊销（access_token / refresh_token）</li>
  * </ul>
  *
  * <p>令牌校验通过 {@link McpOAuth2Manager#validateToken} 完成，可无缝委托给企业 IdP（EMA）。</p>
@@ -32,7 +33,8 @@ public class McpOAuth2Endpoint {
     }
 
     /**
-     * OAuth2 Token 端点（仅支持 grant_type=client_credentials）。
+     * OAuth2 Token 端点。
+     * 支持 {@code grant_type=client_credentials}（M2M 签发）与 {@code grant_type=refresh_token}（轮换换发）。
      * 兼容标准 x-www-form-urlencoded 请求体。
      */
     @PostMapping(value = "/token")
@@ -40,13 +42,27 @@ public class McpOAuth2Endpoint {
             @RequestParam("grant_type") String grantType,
             @RequestParam("client_id") String clientId,
             @RequestParam("client_secret") String clientSecret,
-            @RequestParam(value = "scope", required = false) String scope) {
+            @RequestParam(value = "scope", required = false) String scope,
+            @RequestParam(value = "refresh_token", required = false) String refreshToken) {
 
-        if (!"client_credentials".equals(grantType)) {
-            return unsupported("unsupported_grant_type", "Only client_credentials is supported");
-        }
         if (!oauth2.isClientEnabled(clientId)) {
             return error(HttpStatus.UNAUTHORIZED, "invalid_client", "Unknown or disabled client");
+        }
+
+        if ("refresh_token".equals(grantType)) {
+            if (refreshToken == null || refreshToken.isBlank()) {
+                return error(HttpStatus.BAD_REQUEST, "invalid_request", "refresh_token is required");
+            }
+            McpOAuth2Manager.TokenResponse refreshed =
+                    oauth2.refreshClientCredentialsToken(clientId, clientSecret, refreshToken);
+            if (refreshed == null) {
+                return error(HttpStatus.UNAUTHORIZED, "invalid_grant", "Refresh token invalid, expired, or reused (family revoked)");
+            }
+            return ok(refreshed);
+        }
+
+        if (!"client_credentials".equals(grantType)) {
+            return unsupported("unsupported_grant_type", "Supported: client_credentials, refresh_token");
         }
 
         Set<String> requestedScopes = null;
@@ -58,12 +74,18 @@ public class McpOAuth2Endpoint {
         if (resp == null) {
             return error(HttpStatus.UNAUTHORIZED, "invalid_client", "Client authentication failed");
         }
+        return ok(resp);
+    }
 
+    private ResponseEntity<Map<String, Object>> ok(McpOAuth2Manager.TokenResponse resp) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("access_token", resp.accessToken());
         body.put("token_type", resp.tokenType());
         body.put("expires_in", resp.expiresIn());
         body.put("scope", String.join(" ", resp.scope()));
+        if (resp.refreshToken() != null && !resp.refreshToken().isBlank()) {
+            body.put("refresh_token", resp.refreshToken());
+        }
         return ResponseEntity.ok(body);
     }
 
@@ -71,6 +93,23 @@ public class McpOAuth2Endpoint {
     @GetMapping("/introspect")
     public Map<String, Object> introspect(@RequestParam("token") String token) {
         return oauth2.introspect(token);
+    }
+
+    /** RFC 7009 Token 吊销端点：可吊销 access_token 或 refresh_token。 */
+    @PostMapping("/revoke")
+    public ResponseEntity<Map<String, Object>> revoke(
+            @RequestParam("token") String token,
+            @RequestParam(value = "token_type_hint", required = false) String tokenTypeHint) {
+        if (token == null || token.isBlank()) {
+            return error(HttpStatus.BAD_REQUEST, "invalid_request", "token is required");
+        }
+        boolean revoked = "refresh_token".equals(tokenTypeHint)
+                ? oauth2.revokeRefreshToken(token)
+                : (oauth2.revokeToken(token) || oauth2.revokeRefreshToken(token));
+        // RFC 7009：无论 token 是否有效都应返回 200，避免泄露令牌状态
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("revoked", Boolean.TRUE);
+        return ResponseEntity.ok(body);
     }
 
     // ===== 客户端管理（运维/后台） =====

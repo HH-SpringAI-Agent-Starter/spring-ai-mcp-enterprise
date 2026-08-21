@@ -160,3 +160,31 @@ curl -s -X POST "${BASE_URL}/api/mcp/v2/tools/call" \
 
 echo ""
 echo "✅ OAuth2 client_credentials 示例完成！"
+
+# ==================================================
+# 21-23 V1.9: Refresh Token 轮换 + 重用检测 + 吊销
+# ==================================================
+OAUTH_REFRESH=$(echo "$OAUTH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['refresh_token'])")
+echo "🔁 21. Refresh Token 轮换换发（旧 refresh 作废 + 新 access/refresh 对）"
+REFRESH_RESP=$(curl -s -X POST "${BASE_URL}/oauth2/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=refresh_token&client_id=mcp-agent-1&client_secret=${CLIENT_SECRET}&refresh_token=${OAUTH_REFRESH}")
+echo "$REFRESH_RESP" | python3 -m json.tool
+NEW_REFRESH=$(echo "$REFRESH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['refresh_token'])")
+
+# 重用检测：再次提交已被轮换的旧 refresh_token → 整族吊销（invalid_grant）
+echo ""
+echo "🚨 22. 重用检测演示：重放已轮换的旧 refresh_token → 应返回 invalid_grant（泄露即整族吊销）"
+curl -s -X POST "${BASE_URL}/oauth2/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=refresh_token&client_id=mcp-agent-1&client_secret=${CLIENT_SECRET}&refresh_token=${OAUTH_REFRESH}" | python3 -m json.tool
+
+# 吊销：主动吊销新换发的 refresh_token（RFC 7009）
+echo ""
+echo "🛑 23. RFC 7009 吊销 refresh_token（吊销后不可再换发，响应始终 200 防探测）"
+curl -s -X POST "${BASE_URL}/oauth2/revoke" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "token=${NEW_REFRESH}&token_type_hint=refresh_token" | python3 -m json.tool
+
+echo ""
+echo "✅ V1.9 Refresh Token 轮换/重用检测/吊销 示例完成！"

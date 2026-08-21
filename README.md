@@ -61,6 +61,53 @@
 - 基于角色的工具权限控制（`admin`/`user`）
 - 速率限制 + 超时控制
 
+### 🔐 OAuth2 / EMA 企业授权（V1.8+，M2M 凭证）
+
+把「长期共享 API Key」升级为「短期令牌 + 轮换刷新」，并支持委托企业 IdP 集中鉴权（EMA，Enterprise-Managed Authorization，已被 Anthropic/Microsoft 及主流 SaaS 采纳）：
+
+| 端点 | 说明 |
+| --- | --- |
+| `POST /oauth2/token` | Client Credentials 签发 / Refresh Token 轮换换发 |
+| `GET /oauth2/introspect` | RFC 7662 令牌内省（供网关/资源服务器校验） |
+| `POST /oauth2/revoke` | RFC 7009 令牌吊销（access_token / refresh_token） |
+| `POST /oauth2/clients` | 注册 OAuth2 客户端（返回一次性明文 secret） |
+| `DELETE /oauth2/clients/{id}` | 吊销客户端 |
+| `GET /oauth2/stats` | 活动客户端数 / TTL / EMA 委托状态 |
+
+**V1.9 安全增强：**
+- **Refresh Token 轮换**：每次刷新换发全新 access+refresh 对，旧 refresh 立即作废
+- **重用检测**：被轮换的 refresh token 再次使用 → 判定泄露，**整族吊销**（防重放）
+- **网关 Bearer 自动校验**：`mcp.enterprise.security.oauth2.enforce-bearer=true` 开启后，所有非公开路径强制 `Authorization: Bearer` 校验（Fail-Closed），校验结果（client/scope/roles）以 `request attribute: mcp.tokenInfo` 暴露给下游
+- **jti 防碰撞**：同一秒内签发的令牌也全局唯一（防重放/防碰撞）
+
+```yaml
+mcp:
+  enterprise:
+    security:
+      oauth2:
+        signing-key: ${OAUTH2_SIGNING_KEY}   # 生产环境务必使用强随机密钥
+        token-ttl-seconds: 3600              # access token 有效期
+        refresh-token-ttl-seconds: 2592000   # refresh token 有效期（默认 30 天）
+        enforce-bearer: false                # true = 网关强制 Bearer 校验（Fail-Closed）
+```
+
+```bash
+# 1. 注册客户端 → 拿到 client_secret
+curl -s -X POST 'http://localhost:8080/oauth2/clients?clientId=agent-1&scopes=tools:read%20tools:call'
+# 2. 签发 access_token + refresh_token
+curl -s -X POST 'http://localhost:8080/oauth2/token' \
+  -d 'grant_type=client_credentials&client_id=agent-1&client_secret=<SECRET>'
+# 3. 调用工具（Bearer 模式）
+curl -s 'http://localhost:8080/api/mcp/v2/message' -H 'Authorization: Bearer <ACCESS_TOKEN>' ...
+# 4. 刷新轮换
+curl -s -X POST 'http://localhost:8080/oauth2/token' \
+  -d 'grant_type=refresh_token&client_id=agent-1&client_secret=<SECRET>&refresh_token=<REFRESH>'
+# 5. 吊销
+curl -s -X POST 'http://localhost:8080/oauth2/revoke' -d 'token=<TOKEN>&token_type_hint=refresh_token'
+```
+
+> 📖 完整指南见 [docs/oauth2-guide.md](docs/oauth2-guide.md)，客户端示例见 `examples/`（Java / Python / Node / curl）
+
 ### 🔄 Streamable HTTP 调用（2026-07-28 规范新默认）
 支持 **Streamable HTTP 无状态传输**：
 - `POST /api/mcp/v2/message` — JSON-RPC 请求/响应（无需 session，可直接挂负载均衡）

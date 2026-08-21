@@ -81,12 +81,19 @@ public class McpEnterpriseProperties {
         private boolean enabled = true;
         private String signingKey = "change-me-in-production-oauth2-signing-key";
         private long tokenTtlSeconds = 3600;
+        // V1.9: refresh token 轮换 + 网关 Bearer 自动校验
+        private long refreshTokenTtlSeconds = 2592000;   // 30 天
+        private boolean enforceBearer = false;           // 开启后网关对非公开路径强制 Bearer 校验
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public String getSigningKey() { return signingKey; }
         public void setSigningKey(String signingKey) { this.signingKey = signingKey; }
         public long getTokenTtlSeconds() { return tokenTtlSeconds; }
         public void setTokenTtlSeconds(long tokenTtlSeconds) { this.tokenTtlSeconds = tokenTtlSeconds; }
+        public long getRefreshTokenTtlSeconds() { return refreshTokenTtlSeconds; }
+        public void setRefreshTokenTtlSeconds(long refreshTokenTtlSeconds) { this.refreshTokenTtlSeconds = refreshTokenTtlSeconds; }
+        public boolean isEnforceBearer() { return enforceBearer; }
+        public void setEnforceBearer(boolean enforceBearer) { this.enforceBearer = enforceBearer; }
     }
 
     public Server getServer() { return server; }

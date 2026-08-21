@@ -167,4 +167,95 @@ class McpOAuth2ManagerTest {
     void blankSigningKeyRejected() {
         assertThrows(IllegalArgumentException.class, () -> new McpOAuth2Manager("   "));
     }
+
+    // ===== V1.9: refresh token 轮换 + 重用检测 =====
+
+    @Test
+    void clientCredentialsResponseIncludesRefreshToken() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        var resp = m.issueClientCredentialsToken("svc", reg.clientSecret(), null);
+        assertNotNull(resp.refreshToken());
+        assertFalse(resp.refreshToken().isBlank());
+        assertEquals(1, m.getRefreshTokenCount());
+    }
+
+    @Test
+    void refreshTokenRotatesPairAndOldRefreshDies() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        var first = m.issueClientCredentialsToken("svc", reg.clientSecret(), null);
+
+        var second = m.refreshClientCredentialsToken("svc", reg.clientSecret(), first.refreshToken());
+        assertNotNull(second);
+        assertNotEquals(first.accessToken(), second.accessToken());
+        assertNotEquals(first.refreshToken(), second.refreshToken());
+        // 新 access_token 可用且 scope 保持
+        var info = m.validateToken(second.accessToken());
+        assertNotNull(info);
+        assertTrue(info.scopes().contains("tools:call"));
+
+        // 轮换后：旧 refresh 已 used、新 refresh 活跃 → 恰好 1 个有效
+        assertEquals(1, m.getRefreshTokenCount());
+
+        // 旧 refresh_token 已被轮换：再次使用 = 重用 → 整族吊销（含新 token），必须失败
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), first.refreshToken()));
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), second.refreshToken()));
+        assertEquals(0, m.getRefreshTokenCount());
+    }
+
+    @Test
+    void refreshTokenReuseTriggersFamilyRevocation() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        var first = m.issueClientCredentialsToken("svc", reg.clientSecret(), null);
+        // 正常轮换一次
+        var second = m.refreshClientCredentialsToken("svc", reg.clientSecret(), first.refreshToken());
+        assertNotNull(second);
+
+        // 攻击者重放旧 refresh_token → 重用检测 → 整族吊销
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), first.refreshToken()));
+
+        // 家族已吊销：连轮换后新发的 refresh_token 也全部失效
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), second.refreshToken()));
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), second.refreshToken()));
+        assertEquals(0, m.getRefreshTokenCount());
+    }
+
+    @Test
+    void refreshRejectsWrongSecretUnknownClientOrRevoked() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        var resp = m.issueClientCredentialsToken("svc", reg.clientSecret(), null);
+
+        // secret 错误
+        assertNull(m.refreshClientCredentialsToken("svc", "wrong-secret", resp.refreshToken()));
+        // 未知客户端
+        assertNull(m.refreshClientCredentialsToken("ghost", reg.clientSecret(), resp.refreshToken()));
+        // 客户端被吊销
+        m.revokeClient("svc");
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), resp.refreshToken()));
+    }
+
+    @Test
+    void revokedRefreshTokenCannotBeUsed() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        var resp = m.issueClientCredentialsToken("svc", reg.clientSecret(), null);
+
+        assertTrue(m.revokeRefreshToken(resp.refreshToken()));
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), resp.refreshToken()));
+        assertEquals(0, m.getRefreshTokenCount());
+
+        // 重复吊销返回 false（已不存在），幂等
+        assertFalse(m.revokeRefreshToken(resp.refreshToken()));
+    }
+
+    @Test
+    void blankRefreshTokenRejected() {
+        McpOAuth2Manager m = newManager();
+        var reg = m.registerClient("svc", "ops", Set.of("user"), Set.of("tools:call"));
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), null));
+        assertNull(m.refreshClientCredentialsToken("svc", reg.clientSecret(), "   "));
+    }
 }
