@@ -27,6 +27,6 @@
             <artifactId>spring-boot-starter-web</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- actuator ���Ƴ���Spring Boot 3.4 fat jar @ConditionalOnAvailableEndpoint bug�� -->
+        <!-- actuator 依赖移除：规避 Spring Boot 3.4 fat jar @ConditionalOnAvailableEndpoint bug -->
     </dependencies>
 </project>

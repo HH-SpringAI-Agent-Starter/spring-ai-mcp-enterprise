@@ -14,21 +14,21 @@
     <description>Spring AI Alibaba MCP Integration - DashScope/DashVector</description>
 
     <dependencies>
-        <!-- �������� -->
+        <!-- 内部核心模块依赖 -->
         <dependency>
             <groupId>com.mcp.enterprise</groupId>
             <artifactId>mcp-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Spring AI Alibaba - DashScope ģ�ͽ��� -->
+        <!-- Spring AI Alibaba - DashScope 模型接入 -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter</artifactId>
             <version>${spring-ai-alibaba.version}</version>
         </dependency>
 
-        <!-- Spring AI MCP Client ���ڿͻ��˲༯�� -->
+        <!-- Spring AI MCP Client 用于客户端集成示例 -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>

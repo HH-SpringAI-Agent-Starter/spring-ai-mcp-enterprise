@@ -378,6 +378,9 @@ docker compose --profile full up -d
 | **V1.5** | **2026-07-28 最终版网关友好：Mcp-Method/Mcp-Name 标头 + 传输验证 + ttlMs/cacheScope + 确定性排序** | ✅ 已完成 |
 | **V1.7** | **网关限流路由表（按操作 QPS 运行时管理）+ Prometheus 指标导出** | ✅ 已完成 |
 | **V1.8** | **OAuth2 Client Credentials 短时凭证 + EMA 企业集中授权（Token/Introspect/吊销）+ 市场调研 08-20** | ✅ 已完成 |
+| **V1.9** | **OAuth2 Refresh Token 轮换 + 重用检测（RFC 9700）+ 网关 Bearer 强制校验 + jti 防碰撞 + RFC 7009 吊销端点** | ✅ 已完成 |
+
+| **V1.10** | **企业采购对照表(RFP清单) + 兼职报价单 + MCP Registry 收录申请（进行中）** | 🚧 进行中 |
 
 ---
 

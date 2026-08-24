@@ -24,7 +24,7 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- ���ؿ���/������ H2 �ڴ����ݿ� -->
+        <!-- 本地开发/测试用 H2 内存数据库 -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
