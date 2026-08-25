@@ -1,0 +1,16 @@
+{
+  "name": "Spring AI MCP Enterprise",
+  "description": "Enterprise MCP Server framework for Java/Spring Boot — RBAC, OAuth2, Rate Limiter, Audit Log, Prometheus, Streamable HTTP, Spring AI Alibaba compatible.",
+  "type": "mcp",
+  "transport": "streamable-http",
+  "url": "http://localhost:8081/api/mcp/message",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization",
+    "env_var": "MCP_API_KEY"
+  },
+  "tools_prefix": "mcp_enterprise_",
+  "category": "enterprise",
+  "tags": ["java", "spring-boot", "mcp", "enterprise", "database", "search", "ai-agent"],
+  "docs": "https://github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise/tree/main/docs/dify-integration-guide.md"
+}

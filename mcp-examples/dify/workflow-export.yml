@@ -1,0 +1,35 @@
+# Dify 工作流示例：企业数据问答 Agent
+# 导入方式：Dify → 工作流 → 导入 DSL 文件（将本文件内容粘贴/上传为 .yml）
+# 依赖：已添加 MCP 工具（见 docs/dify-integration-guide.md 方式一）
+app:
+  name: 企业数据问答 Agent
+  mode: workflow
+  description: 通过 MCP Enterprise Server 查询企业数据库与网络搜索
+
+nodes:
+  - id: start
+    type: start
+    title: 开始
+    outputs:
+      - query
+
+  - id: agent
+    type: agent
+    title: 数据分析 Agent
+    model: gpt-4o
+    tools:
+      - provider: mcp
+        name: mcp_enterprise_database_query
+      - provider: mcp
+        name: mcp_enterprise_search_web
+    system_prompt: |
+      你是企业数据分析助手。用户提问涉及数据库时调用 database_query（只读）；
+      需要最新信息时调用 search_web。回答需引用工具返回结果。
+    inputs:
+      query: "{{#start.query#}}"
+
+  - id: end
+    type: end
+    title: 结束
+    outputs:
+      - answer: "{{#agent.output#}}"

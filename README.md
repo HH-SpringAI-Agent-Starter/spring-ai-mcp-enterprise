@@ -108,6 +108,16 @@ curl -s -X POST 'http://localhost:8080/oauth2/revoke' -d 'token=<TOKEN>&token_ty
 
 > 📖 完整指南见 [docs/oauth2-guide.md](docs/oauth2-guide.md)，客户端示例见 `examples/`（Java / Python / Node / curl）
 
+### 🧩 Dify 工作流集成（V1.10）
+
+Dify 可一键挂载本框架为 MCP 工具，让可视化编排的 Agent 直接调用企业数据库/搜索/系统工具：
+
+- 在 Dify → 工具 → 自定义工具 → 添加 MCP 工具，选择 **Streamable HTTP**；
+- Server URL 填 `http://<host>:8081/api/mcp/message`，Header 带 `Authorization: Bearer <API_KEY>`；
+- 自动拉取工具列表（`database_query` / `search_web` / `execute_command` / finance 等），拖入 Agent 节点即用。
+
+> 📖 完整指南见 [docs/dify-integration-guide.md](docs/dify-integration-guide.md)，导入模板见 `mcp-examples/dify/`
+
 ### 🔄 Streamable HTTP 调用（2026-07-28 规范新默认）
 支持 **Streamable HTTP 无状态传输**：
 - `POST /api/mcp/v2/message` — JSON-RPC 请求/响应（无需 session，可直接挂负载均衡）
@@ -380,7 +390,7 @@ docker compose --profile full up -d
 | **V1.8** | **OAuth2 Client Credentials 短时凭证 + EMA 企业集中授权（Token/Introspect/吊销）+ 市场调研 08-20** | ✅ 已完成 |
 | **V1.9** | **OAuth2 Refresh Token 轮换 + 重用检测（RFC 9700）+ 网关 Bearer 强制校验 + jti 防碰撞 + RFC 7009 吊销端点** | ✅ 已完成 |
 
-| **V1.10** | **企业采购对照表(RFP清单) + 兼职报价单 + MCP Registry 收录申请（进行中）** | 🚧 进行中 |
+| **V1.10** | **企业采购对照表(RFP清单) + 兼职报价单 + MCP Registry 收录申请 + Dify 集成示例 + 多租户预研 + 市场雷达 08-25（MCP 岗位薪酬带）** | 🚧 进行中 |
 
 ---
 
