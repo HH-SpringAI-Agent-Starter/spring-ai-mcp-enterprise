@@ -1,0 +1,19 @@
+# ============================================================
+# V1.11 多租户 Row-level 隔离示例配置
+# 启用方式: --spring.profiles.active=tenant  (或合并进 application.yml)
+#
+# 行为说明:
+#   - X-Tenant-Id 请求头注入租户上下文(见 McpTenantFilter)
+#   - fail-closed=true: 未解析到租户的 JDBC 操作直接抛 TenantNotResolvedException
+#     (防止跨租户写入/越权读取, 企业级安全默认)
+#   - TenantAwareJdbcTemplate 自动包装容器中的 JdbcTemplate bean
+#   - 日志/指标自动带 mcp.tenantId MDC 标签, 便于审计溯源
+# ============================================================
+mcp:
+  tenant:
+    enabled: true
+    header-name: X-Tenant-Id
+    fail-closed: true
+    # 可选: 混合模式(存量单租户服务)下关闭 fail-closed 并指定兜底租户
+    # fail-closed: false
+    # default-tenant: legacy

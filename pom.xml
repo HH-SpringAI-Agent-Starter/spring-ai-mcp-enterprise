@@ -50,6 +50,8 @@
         <module>mcp-tools/tool-finance</module>
         <module>mcp-monitor</module>
         <module>mcp-auth</module>
+        <!-- V1.11: 多租户 Row-level 隔离（TenantContext + TenantAwareJdbcTemplate + 过滤链） -->
+        <module>mcp-tenant</module>
         <!-- V1.2: Spring AI Alibaba 集成 + Spring AI Client 示例纳入默认构建（依赖 spring-milestones/aliyun 仓库，已在全局 repositories 声明） -->
         <module>mcp-integrations/mcp-alibaba</module>
         <module>mcp-examples/mcp-client-spring-ai</module>

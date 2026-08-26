@@ -268,6 +268,7 @@ docker compose --profile full up -d
 | `mcp-tools/tool-finance` | **金融场景模板**：财务指标计算（CAGR/ROE/PEG/复利/定投/利润率）+ 合规日历（财报披露窗口）+ 风险评分（五维加权），面向研报助手、投顾/风控机器人 |
 | `mcp-monitor` | Prometheus + Actuator 监控 |
 | **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
+| **`mcp-tenant`** | 🏢 **多租户隔离（V1.11 新增）**：TenantContext + TenantAwareJdbcTemplate Row-level 隔离，X-Tenant-Id 头注入，fail-closed 防跨租户越权 |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 

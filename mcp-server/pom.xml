@@ -34,6 +34,12 @@
             <artifactId>mcp-tool-http</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- V1.11: 多租户 Row-level 隔离（默认启用 fail-closed，X-Tenant-Id 头注入） -->
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-tenant</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
