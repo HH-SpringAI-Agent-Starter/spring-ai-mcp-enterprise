@@ -68,6 +68,10 @@ jobs:
           mcp-server/target/*.jar
           mcp-tools/*/target/*.jar
           mcp-monitor/target/*.jar
+          mcp-auth/target/*.jar
+          mcp-tenant/target/*.jar
+          mcp-integrations/mcp-alibaba/target/*.jar
+          mcp-examples/mcp-client-spring-ai/target/*.jar
         retention-days: 7
 
   # ===== 代码质量检查 =====
@@ -215,5 +219,9 @@ jobs:
           mcp-server/target/*.jar
           mcp-tools/*/target/*.jar
           mcp-monitor/target/*.jar
+          mcp-auth/target/*.jar
+          mcp-tenant/target/*.jar
+          mcp-integrations/mcp-alibaba/target/*.jar
+          mcp-examples/mcp-client-spring-ai/target/*.jar
         draft: false
         prerelease: false

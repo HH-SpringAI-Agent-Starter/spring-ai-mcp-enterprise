@@ -268,7 +268,7 @@ docker compose --profile full up -d
 | `mcp-tools/tool-finance` | **金融场景模板**：财务指标计算（CAGR/ROE/PEG/复利/定投/利润率）+ 合规日历（财报披露窗口）+ 风险评分（五维加权），面向研报助手、投顾/风控机器人 |
 | `mcp-monitor` | Prometheus + Actuator 监控 |
 | **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
-| **`mcp-tenant`** | 🏢 **多租户隔离（V1.11 新增）**：TenantContext + TenantAwareJdbcTemplate Row-level 隔离，X-Tenant-Id 头注入，fail-closed 防跨租户越权 |
+| **`mcp-tenant`** | 🏢 **多租户隔离（V1.11 Row-level + V1.12 Schema 级）**：Row 模式（TenantContext + TenantAwareJdbcTemplate fail-closed）+ Schema 模式（TenantSchemaDataSource 自动切换 schema/provision/方言适配），X-Tenant-Id 头注入，双模式防跨租户越权 |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
@@ -391,7 +391,10 @@ docker compose --profile full up -d
 | **V1.8** | **OAuth2 Client Credentials 短时凭证 + EMA 企业集中授权（Token/Introspect/吊销）+ 市场调研 08-20** | ✅ 已完成 |
 | **V1.9** | **OAuth2 Refresh Token 轮换 + 重用检测（RFC 9700）+ 网关 Bearer 强制校验 + jti 防碰撞 + RFC 7009 吊销端点** | ✅ 已完成 |
 
-| **V1.10** | **企业采购对照表(RFP清单) + 兼职报价单 + MCP Registry 收录申请 + Dify 集成示例 + 多租户预研 + 市场雷达 08-25（MCP 岗位薪酬带）** | 🚧 进行中 |
+| **V1.10** | **企业采购对照表(RFP清单) + 兼职报价单 + MCP Registry 收录申请 + Dify 集成示例 + 多租户预研 + 市场雷达 08-25（MCP 岗位薪酬带）** | ✅ 已完成 |
+| **V1.11** | **多租户 Row-level 隔离（mcp-tenant：TenantContext + TenantAwareJdbcTemplate + fail-closed）+ 市场雷达 08-26（多租户进 JD）** | ✅ 已完成 |
+| **V1.12** | **多租户 Schema 级隔离（TenantSchemaDataSource 自动切换 + provision + 方言适配）+ 市场雷达 08-27（Sumo $207-243K 平台岗/Upwork 官方 MCP）** | ✅ 已完成 |
+| **V1.13** | **实例级多租户（每租户独立 DataSource/连接池）** | 🚧 预研中 |
 
 ---
 

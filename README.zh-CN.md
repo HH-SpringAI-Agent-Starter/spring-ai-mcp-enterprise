@@ -211,6 +211,7 @@ String result = client.execute("database_query", Map.of("sql", "SELECT * FROM us
 | **mcp-tools/tool-system** | 系统监控工具（JVM/CPU/内存） | 依赖 starter |
 | **mcp-monitor** | 监控 + 审计 + 告警（Prometheus 集成） | 可选 |
 | **mcp-auth** | OAuth2/SSO/JWT 企业认证 | 可选 |
+| **mcp-tenant** | 多租户隔离：Row 级（TenantAwareJdbcTemplate）+ Schema 级（TenantSchemaDataSource 自动切换） | 可选 |
 | **mcp-integrations/mcp-alibaba** | Spring AI Alibaba DashScope 集成 | 可选 |
 | **mcp-examples/mcp-client-spring-ai** | Spring AI Client 调用示例 | 示例 |
 
@@ -393,6 +394,12 @@ A: 最小配置 256MB 内存 + 1 核 CPU 即可运行。推荐生产配置 1GB �
 - [x] **V1.5 2026-07-28 网关友好：Mcp-Method/Mcp-Name 标头 + ttlMs/cacheScope + 确定性排序**
 - [x] **V1.6 网关路由监控指标（Mcp-Method/Mcp-Name 维度）**
 - [x] **V1.7 网关限流路由表 + Prometheus 指标导出**
+- [x] **V1.8 OAuth2 Client Credentials 短时凭证 + EMA 企业集中授权（Token/Introspect/吊销）**
+- [x] **V1.9 OAuth2 Refresh Token 轮换 + 重用检测（RFC 9700）+ RFC 7009 吊销端点**
+- [x] **V1.10 企业采购对照表(RFP) + 兼职报价单 + MCP Registry 收录申请 + Dify 集成示例**
+- [x] **V1.11 多租户 Row-level 隔离（mcp-tenant：TenantContext + TenantAwareJdbcTemplate）**
+- [x] **V1.12 多租户 Schema 级隔离（TenantSchemaDataSource 自动切换 + provision + 方言）← 当前**
+- [ ] V1.13 实例级多租户（每租户独立 DataSource/连接池）
 - [ ] V0.13 MCP Apps 子协议支持
 - [ ] V0.14 更多工具：Redis、Kafka、文件系统
 - [ ] V0.15 WebSocket 传输支持

@@ -16,6 +16,7 @@ COPY mcp-core/pom.xml mcp-core/
 COPY mcp-spring-boot-starter/pom.xml mcp-spring-boot-starter/
 COPY mcp-monitor/pom.xml mcp-monitor/
 COPY mcp-auth/pom.xml mcp-auth/
+COPY mcp-tenant/pom.xml mcp-tenant/
 COPY mcp-server/pom.xml mcp-server/
 COPY mcp-tools/tool-database/pom.xml mcp-tools/tool-database/
 COPY mcp-tools/tool-search/pom.xml mcp-tools/tool-search/

@@ -38,6 +38,18 @@ logs/
 .DS_Store?
 Thumbs.db
 ehthumbs.db
+
+# Tooling scan leftovers (temporary, never commit)
+_bad_lines.txt
+_chk*.txt
+_fix_result.txt
+_fixpom*.mjs
+_scan*.mjs
+_scan*_result.txt
+_showbad.mjs
+_t*.txt
+_upd_roadmap*.mjs
+_update_roadmap*.cjs
 Desktop.ini
 # Docker
 docker-data/
