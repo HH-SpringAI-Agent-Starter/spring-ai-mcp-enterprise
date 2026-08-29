@@ -1,6 +1,6 @@
 # V1.13 预研：实例级多租户隔离（Instance-Level Multi-Tenancy）
 
-> 状态：预研设计 | 版本：1.1.0 → 1.1.0（新增模块能力） | 日期：2026-08-28
+> 状态：**✅ 已落地（V1.13，2026-08-29，发布说明见 [V1.13-release-notes.md](./V1.13-release-notes.md)）** | 版本：1.1.0 → 1.1.0（新增模块能力） | 设计日期：2026-08-28
 > 前置：V1.11 Row-level（08-26）✅ → V1.12 Schema-level（08-27）✅ → **V1.13 Instance-level（本文）**
 
 ## 一、为什么做实例级隔离
@@ -111,10 +111,10 @@ mcp:
 | 与 Spring 事务管理集成 | 事务需绑定到路由后的具体 DataSource；`@Transactional` 建议用 per-tenant TransactionManager 或编程式事务（先文档约束，后续再抽象） |
 | 密码安全 | 支持 `${ENV}` 占位符 + 可选 jasypt 加密（复用 mcp-core 的配置解密能力） |
 
-## 六、验收标准
+## 六、验收标准（2026-08-29 已全部达成 ✅）
 
-- [ ] 三档模式（row/schema/instance）配置互斥且各模式测试全绿
-- [ ] 实例级物理隔离演示（两租户独立库，互不可见）
-- [ ] 运行时开通/停用租户（无重启）
-- [ ] 与既有 `X-Tenant-Id` 链路零改动兼容
-- [ ] 发布说明 + 博客稿（三档隔离完整故事线）
+- [x] 三档模式（row/schema/instance）配置互斥且各模式测试全绿（mcp-tenant 共 43 个）
+- [x] 实例级物理隔离演示（两租户独立库，互不可见；双 H2 实测）
+- [x] 运行时开通/停用租户（无重启；registry register/unregister 即时生效）
+- [x] 与既有 `X-Tenant-Id` 链路零改动兼容（路由复用 TenantContext + McpTenantFilter）
+- [x] 发布说明（V1.13-release-notes.md）+ 博客稿（docs/blog-java-mcp-instance-tenant-2026-08-29.md，三档隔离完整故事线）

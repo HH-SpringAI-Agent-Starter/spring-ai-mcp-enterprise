@@ -1,1 +1,2 @@
 com.mcp.enterprise.tenant.McpTenantAutoConfiguration
+com.mcp.enterprise.tenant.instance.McpTenantInstanceAutoConfiguration

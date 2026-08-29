@@ -12,7 +12,7 @@
 
     <artifactId>mcp-tenant</artifactId>
     <packaging>jar</packaging>
-    <description>MCP Enterprise Multi-Tenancy - row-level tenant isolation (TenantContext + TenantAwareJdbcTemplate)</description>
+    <description>MCP Enterprise Multi-Tenancy - three-tier isolation: row-level (TenantContext + TenantAwareJdbcTemplate), schema-level (TenantSchemaManager + TenantSchemaDataSource) and instance-level (TenantInstanceRegistry + per-tenant HikariCP pools)</description>
 
     <dependencies>
         <dependency>

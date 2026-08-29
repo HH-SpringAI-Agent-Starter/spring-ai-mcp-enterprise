@@ -31,6 +31,18 @@ import javax.sql.DataSource;
  *       {@link DataSource} - connections auto-switch schema per tenant.</li>
  * </ul>
  *
+ * <h3>Instance-level mode (V1.13, {@code mcp.tenant.mode=instance})</h3>
+ * <ul>
+ *   <li>Wired by {@code com.mcp.enterprise.tenant.instance.McpTenantInstanceAutoConfiguration}
+ *       - every tenant gets its own physical DataSource + connection pool.</li>
+ * </ul>
+ *
+ * <p>The three modes are mutually exclusive by construction (each bean set is
+ * guarded by its own {@code mode} condition). {@link TenantModeGuard} adds
+ * fail-fast validation for inconsistent combinations (e.g. {@code mode=instance}
+ * with {@code mcp.tenant.instance.enabled=false}, which would silently disable
+ * isolation).</p>
+ *
  * <p>Disabled by setting {@code mcp.tenant.enabled=false}.</p>
  */
 @AutoConfiguration
@@ -51,6 +63,16 @@ public class McpTenantAutoConfiguration {
         // After the security chain (HIGHEST_PRECEDENCE), before business filters.
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         return registration;
+    }
+
+    /**
+     * Fail-fast validation of the tenant mode configuration. A misconfigured
+     * combination must never silently degrade into "no isolation at all".
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public TenantModeGuard tenantModeGuard(McpTenantProperties properties) {
+        return new TenantModeGuard(properties);
     }
 
     /**
