@@ -1,6 +1,7 @@
 package com.mcp.enterprise.tenant.instance;
 
 import com.mcp.enterprise.tenant.McpTenantProperties;
+import com.mcp.enterprise.tenant.lifecycle.TenantLifecycleManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -64,5 +65,20 @@ public class McpTenantInstanceAutoConfiguration {
     @ConditionalOnProperty(prefix = "mcp.tenant.instance", name = "enabled", havingValue = "true", matchIfMissing = true)
     public TenantInstanceDataSource tenantInstanceDataSource(TenantInstanceRegistry registry) {
         return new TenantInstanceDataSource(registry);
+    }
+
+    /**
+     * Runtime tenant lifecycle manager (V1.14): provision / resume / suspend /
+     * teardown of tenant instances via the admin REST API, consuming the same
+     * registry plus the initialized-DDL-aware provisioner. Only exposed in
+     * instance mode where the registry exists.
+     */
+    @Bean
+    @ConditionalOnMissingBean(TenantLifecycleManager.class)
+    @ConditionalOnProperty(prefix = "mcp.tenant.instance", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public TenantLifecycleManager tenantLifecycleManager(TenantInstanceRegistry registry,
+                                                         McpTenantProperties properties) {
+        return new TenantLifecycleManager(registry,
+                new TenantInstanceProvisioner(properties.getInstance().getInitializeDdl()));
     }
 }
