@@ -26,6 +26,7 @@ COPY mcp-tools/tool-calculator/pom.xml mcp-tools/tool-calculator/
 COPY mcp-tools/tool-http/pom.xml mcp-tools/tool-http/
 COPY mcp-tools/tool-finance/pom.xml mcp-tools/tool-finance/
 COPY mcp-integrations/mcp-alibaba/pom.xml mcp-integrations/mcp-alibaba/
+COPY mcp-integrations/mcp-a2a/pom.xml mcp-integrations/mcp-a2a/
 COPY mcp-examples/mcp-client-spring-ai/pom.xml mcp-examples/mcp-client-spring-ai/
 
 # 预下载依赖（利用 Docker 层缓存）；失败不阻塞（源码阶段会重试）

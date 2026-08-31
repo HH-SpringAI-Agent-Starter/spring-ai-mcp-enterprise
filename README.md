@@ -173,6 +173,40 @@ mvn clean install -Pfull
 
 > 📖 详细配置见 [docs/alibaba-integration-guide.md](docs/alibaba-integration-guide.md)
 
+### 🌐 MCP + A2A 双协议网关（V1.15）
+
+**Agent 天花板能力：一个网关同时讲 MCP 和 A2A 两种语言。** 2026-08-20 Google A2A 正式并入 Linux Foundation AAIF（与 MCP 同框架治理），「MCP（Agent→工具）+ A2A（Agent→Agent）」双层栈已成为企业参考架构——蚂蚁集团等 JD 已明确要求「MCP + A2A 研发架构」。
+
+`mcp-integrations/mcp-a2a` 把工具注册中心的全部 MCP 工具自动派生为 A2A Agent Card / Skill，任意 A2A Agent（如 Google ADK、Azure AI Foundry、LangGraph 编排器）可直接调用：
+
+| 端点 | 说明 |
+| --- | --- |
+| `GET /.well-known/agent-card.json` | **A2A 协议标准发现路径**（Agent Card：技能列表自动派生自工具注册中心） |
+| `GET /a2a/agent-card` | Agent Card 别名 |
+| `POST /a2a/rpc` | A2A JSON-RPC 2.0 分派：`message/send` / `task/send` / `task/get` / `task/cancel` / `agent/quote` |
+| `GET /a2a/health` | 存活检查 + 技能数 |
+
+```yaml
+mcp:
+  enterprise:
+    a2a:
+      enabled: true                 # 默认关闭（opt-in）
+      api-key: ${MCP_A2A_API_KEY:}  # 可选：设置后要求 X-A2A-Key 头
+```
+
+```bash
+# 1. 发现 Agent Card（A2A 客户端标准入口）
+curl http://localhost:8081/.well-known/agent-card.json
+# 2. 任务式调用（metadata.skillId = MCP 工具名）
+curl -X POST http://localhost:8081/a2a/rpc -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "task/send",
+  "params": { "message": { "text": "6*7",
+    "metadata": { "skillId": "calculator", "arguments": { "expr": "6*7" } } } }
+}'
+```
+
+> 📖 完整指南见 [docs/a2a-integration-guide.md](docs/a2a-integration-guide.md)，设计解读见 [docs/blog-java-mcp-a2a-2026-08-31.md](docs/blog-java-mcp-a2a-2026-08-31.md)
+
 ---
 
 ## 🚀 快速开始
@@ -270,6 +304,7 @@ docker compose --profile full up -d
 | **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
 | **`mcp-tenant`** | 🏢 **多租户三档隔离（V1.11 Row + V1.12 Schema + V1.13 Instance）+ V1.14 生命周期管理**：Row 模式（TenantContext + TenantAwareJdbcTemplate fail-closed）+ Schema 模式（TenantSchemaDataSource 自动切换 schema/provision/方言适配）+ Instance 模式（TenantInstanceRegistry 每租户独立 DataSource/连接池、运行时开通/停用）+ **生命周期 REST API（/api/admin/tenants：开通/替换/挂起/恢复/销毁 无需重启）**，X-Tenant-Id 头注入，三模式配置互斥 fail-fast，防跨租户越权 |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
+| **`mcp-integrations/mcp-a2a`** | 🌐 **A2A 双协议网关（V1.15）**：MCP 工具 → A2A Agent Card/Skill，JSON-RPC 分派（message/send、task/send/get/cancel），任意 A2A Agent 可直接调用企业 MCP 工具 |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
 ---

@@ -40,6 +40,12 @@
             <artifactId>mcp-tenant</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- V1.15: A2A 双协议网关（默认关闭，mcp.enterprise.a2a.enabled=true 开启） -->
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-a2a</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

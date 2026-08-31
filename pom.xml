@@ -54,6 +54,8 @@
         <module>mcp-tenant</module>
         <!-- V1.2: Spring AI Alibaba 集成 + Spring AI Client 示例纳入默认构建（依赖 spring-milestones/aliyun 仓库，已在全局 repositories 声明） -->
         <module>mcp-integrations/mcp-alibaba</module>
+        <!-- V1.15: A2A (Agent2Agent) 双协议网关：MCP 工具 → A2A Agent Card/Skill -->
+        <module>mcp-integrations/mcp-a2a</module>
         <module>mcp-examples/mcp-client-spring-ai</module>
     </modules>
 

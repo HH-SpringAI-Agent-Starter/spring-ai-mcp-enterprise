@@ -20,6 +20,12 @@ mcp:
     registry:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
+    # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）
+    a2a:
+      enabled: ${MCP_A2A_ENABLED:false}
+      base-path: /a2a
+      agent-name: MCP Enterprise A2A Gateway
+      api-key: ${MCP_A2A_API_KEY:}
   tool:
     http:
       enabled: true
