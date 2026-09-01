@@ -38,7 +38,7 @@ COPY . .
 RUN mvn clean package -DskipTests -pl mcp-server -am --no-transfer-progress
 
 # ---- 阶段 2: 运行 ----
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 
 LABEL org.opencontainers.image.title="MCP Enterprise Server"
 LABEL org.opencontainers.image.description="企业级 MCP Server 框架 - Java/Spring Boot 实现"
