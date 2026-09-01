@@ -173,7 +173,7 @@ mvn clean install -Pfull
 
 > 📖 详细配置见 [docs/alibaba-integration-guide.md](docs/alibaba-integration-guide.md)
 
-### 🌐 MCP + A2A 双协议网关（V1.15）
+### 🌐 MCP + A2A 双协议网关（V1.15 → V1.16）
 
 **Agent 天花板能力：一个网关同时讲 MCP 和 A2A 两种语言。** 2026-08-20 Google A2A 正式并入 Linux Foundation AAIF（与 MCP 同框架治理），「MCP（Agent→工具）+ A2A（Agent→Agent）」双层栈已成为企业参考架构——蚂蚁集团等 JD 已明确要求「MCP + A2A 研发架构」。
 
@@ -181,17 +181,23 @@ mvn clean install -Pfull
 
 | 端点 | 说明 |
 | --- | --- |
-| `GET /.well-known/agent-card.json` | **A2A 协议标准发现路径**（Agent Card：技能列表自动派生自工具注册中心） |
+| `GET /.well-known/agent-card.json` | **A2A 协议标准发现路径**（Agent Card：技能列表自动派生自工具注册中心 + securitySchemes 声明） |
 | `GET /a2a/agent-card` | Agent Card 别名 |
 | `POST /a2a/rpc` | A2A JSON-RPC 2.0 分派：`message/send` / `task/send` / `task/get` / `task/cancel` / `agent/quote` |
+| `POST /a2a/rpc/stream` | **V1.16 SSE 流式**：`message/stream`（异步实时推状态）/ `task/resubscribe`（历史重放） |
 | `GET /a2a/health` | 存活检查 + 技能数 |
+
+V1.16 起 A2A 网关支持 **SSE 流式调度**（TaskStatusUpdateEvent / TaskArtifactUpdateEvent / MessageDeliveryEvent），并在 Agent Card 上 **声明 securitySchemes**（api-key / oauth2，mcp-auth 打通第一步）。
 
 ```yaml
 mcp:
   enterprise:
     a2a:
-      enabled: true                 # 默认关闭（opt-in）
-      api-key: ${MCP_A2A_API_KEY:}  # 可选：设置后要求 X-A2A-Key 头
+      enabled: ${MCP_A2A_ENABLED:false}          # 默认关闭（opt-in）
+      api-key: ${MCP_A2A_API_KEY:}              # 可选：设置后要求 X-A2A-Key 头
+      streaming-enabled: ${MCP_A2A_STREAMING_ENABLED:true}  # V1.16 SSE 流式
+      security-scheme: ${MCP_A2A_SECURITY_SCHEME:}          # V1.16 none|api-key|oauth2
+      oauth2-token-url: ${MCP_A2A_OAUTH2_TOKEN_URL:}        # V1.16 oauth2 token 端点
 ```
 
 ```bash

@@ -157,14 +157,71 @@ curl -X POST http://localhost:8081/a2a/rpc -H 'Content-Type: application/json' \
 - **继承 MCP 安全层**：工具调用仍走 `McpToolManager.invoke`（权限/启用状态/审计统计），A2A 只是传输层换皮，不绕过任何工具级校验；
 - **生产建议**：与 mcp-server 的 Bearer 校验（`enforce-bearer`）或外部 API 网关叠加使用。
 
-## 八、演进路线（Roadmap）
+## 八、SSE 流式（V1.16）
 
-- [ ] `message/stream` / `task/resubscribe`（SSE 流式，协议 streaming 能力置 true）
+A2A v1.0 的标准长连接语义，让编排器实时消费工具执行进度。
+
+### 端点
+
+| 方法 | 端点 | 说明 |
+| --- | --- | --- |
+| `message/stream` | `POST ${base}/rpc/stream`（`Accept: text/event-stream`） | 后台异步执行 MCP 工具，推送事件序列 |
+| `task/resubscribe` | 同上 | 重放目标任务历史事件（含已完成任务），随后保持长连接 |
+
+### 事件类型（对齐 A2A v1.0）
+
+- `TaskStatusUpdateEvent`：working → completed/failed/canceled
+- `TaskArtifactUpdateEvent`：工具结果产出 Artifact
+- `MessageDeliveryEvent`：message/stream 最终投递的 agent 消息
+- `TaskNotFoundEvent`：task/resubscribe 目标任务不存在
+
+### curl 示例
+
+```bash
+# 流式调度
+curl -N -X POST http://localhost:PORT/a2a/rpc/stream \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"message/stream",
+       "params":{"message":{"text":"帮我算 6*7",
+         "metadata":{"skillId":"calculator","arguments":{"expr":"6*7"}}}}}'
+
+# 重订阅已完成/进行中的任务
+taskId=<上一步事件里的 taskId>
+curl -N -X POST http://localhost:PORT/a2a/rpc/stream \
+  -H "Content-Type: application/json" -H "Accept: text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":"2","method":"task/resubscribe","params":{"id":"'$taskId'"}}'
+```
+
+### 配置
+
+```yaml
+mcp:
+  enterprise:
+    a2a:
+      streaming-enabled: ${MCP_A2A_STREAMING_ENABLED:true}
+      security-scheme: ${MCP_A2A_SECURITY_SCHEME:}   # none | api-key | oauth2
+      oauth2-token-url: ${MCP_A2A_OAUTH2_TOKEN_URL:}
+```
+
+### securitySchemes 声明（V1.16，mcp-auth 打通第一步）
+
+Agent Card 的 `securitySchemes` 向 A2A 编排器声明鉴权方案：
+- **api-key**（默认，配了 `api-key` 时）：`{ type: apiKey, in: header, name: X-A2A-Key }`
+- **oauth2**：`{ type: oauth2, flows.clientCredentials.tokenUrl = 配置端点 }`（默认对接 mcp-auth `/oauth2/token`）
+- **none**：空列表。显式 `none` 可覆盖 API Key 自动推导。
+
+> 安全提示：本模块始终在传输层应用 `api-key` 校验；securitySchemes 是向外部编排器**声明**能力，V1.17 起将实现 OAuth2 Client Credentials 实际的令牌交换与强制校验。
+
+## 九、演进路线（Roadmap）
+
+- [x] `message/stream` / `task/resubscribe`（SSE 流式，协议 streaming 能力置 true）—— **V1.16 已完成**
+- [x] `securitySchemes` 声明—— **V1.16 已完成（声明层）**
 - [ ] Signed Agent Card（A2A v1.2 加密签名，防伪造 Agent Card 攻击）
 - [ ] A2A Push Notifications（`task/notify` 回调）
-- [ ] `securitySchemes` 声明 + OAuth2 Client Credentials 对接（复用 mcp-auth）
+- [ ] OAuth2 Client Credentials 实际令牌交换 + 强制校验（复用 mcp-auth）
 
-## 九、与市场信号对照
+## 十、与市场信号对照
 
 | 市场信号 | 本模块对应能力 |
 | --- | --- |

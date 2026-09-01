@@ -21,11 +21,18 @@ mcp:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
     # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）
+    # V1.16: 新增 SSE 流式 (message/stream + task/resubscribe) + securitySchemes 声明（mcp-auth 打通第一步）
     a2a:
       enabled: ${MCP_A2A_ENABLED:false}
       base-path: /a2a
       agent-name: MCP Enterprise A2A Gateway
       api-key: ${MCP_A2A_API_KEY:}
+      # V1.16: SSE 流式开关（默认开启，被 enabled 约束）
+      streaming-enabled: ${MCP_A2A_STREAMING_ENABLED:true}
+      # V1.16: Agent Card securitySchemes 声明（none | api-key | oauth2；留空自动按 api-key 推导）
+      security-scheme: ${MCP_A2A_SECURITY_SCHEME:}
+      # V1.16: security-scheme=oauth2 时的 token 端点（默认对接 mcp-auth /oauth2/token）
+      oauth2-token-url: ${MCP_A2A_OAUTH2_TOKEN_URL:}
   tool:
     http:
       enabled: true
