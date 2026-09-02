@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *       agent-name: "MCP Enterprise Gateway"
  *       agent-description: "企业 MCP 工具统一 A2A 出口"
  *       api-key: ""            # 非空时要求 X-A2A-Key 请求头
+ *       jwt-secret: ""        # V1.17: 非空时启用 OAuth2 Bearer (JWT) 强制校验；与 mcp-auth 的 mcp.auth.jwt-secret 同值即可互通
  *       streaming-enabled: true   # V1.16: SSE 流式 (message/stream + task/resubscribe)
  *       security-scheme: api-key  # V1.16: agent-card securitySchemes 声明 (none|api-key|oauth2)
  *       oauth2-token-url: ""      # security-scheme=oauth2 时的 token 端点（对接 mcp-auth）
@@ -41,6 +42,12 @@ public class McpA2aProperties {
 
     /** 可选简单鉴权：非空时，所有请求必须携带 X-A2A-Key 请求头且值一致 */
     private String apiKey = "";
+
+    /**
+     * V1.17: OAuth2 Bearer 强制鉴权密钥。非空时所有请求必须携带 {@code Authorization: Bearer <JWT>}。
+     * 与 mcp-auth 的 {@code mcp.auth.jwt-secret} 配置同值时，mcp-auth 签发的 client-credentials 令牌可直接通过本网关校验。
+     */
+    private String jwtSecret = "";
 
     /** 任务执行超时（毫秒），默认 30s 与 ToolDefinition.timeoutMs 对齐 */
     private long taskTimeoutMs = 30000;
@@ -108,6 +115,14 @@ public class McpA2aProperties {
         this.apiKey = apiKey;
     }
 
+    public String getJwtSecret() {
+        return jwtSecret;
+    }
+
+    public void setJwtSecret(String jwtSecret) {
+        this.jwtSecret = jwtSecret;
+    }
+
     public long getTaskTimeoutMs() {
         return taskTimeoutMs;
     }
@@ -156,11 +171,43 @@ public class McpA2aProperties {
         this.oauth2TokenUrl = oauth2TokenUrl;
     }
 
-    /** 推导实际 securityScheme：显式配置优先，否则 api-key 非空则 api-key，否则 none */
+    /** 推导实际 securityScheme（Agent Card securitySchemes 声明）：显式配置优先，否则与鉴权模式对齐 */
     public String resolvedSecurityScheme() {
         if (securityScheme != null && !securityScheme.isBlank()) {
             return securityScheme;
         }
+        if (jwtSecret != null && !jwtSecret.isBlank()) {
+            return "oauth2";
+        }
         return (apiKey != null && !apiKey.isBlank()) ? "api-key" : "none";
+    }
+
+    /**
+     * V1.17: 推导网关实际鉴权模式（RFC 6750 语义）：
+     * 1. securityScheme 显式声明（oauth2/api-key/none）→ 尊重显式声明，声明与强制校验一致
+     * 2. jwt-secret 非空 → oauth2（Bearer 强制校验，与 mcp-auth 令牌互通）
+     * 3. api-key 非空 → api-key
+     * 4. 否则 → none
+     */
+    public String resolvedAuthMode() {
+        if (securityScheme != null && !securityScheme.isBlank()) {
+            String declared = securityScheme.trim().toLowerCase();
+            if ("oauth2".equals(declared) || "api-key".equals(declared) || "none".equals(declared)) {
+                return declared;
+            }
+            // 无法识别的声明值：回退到自动推导
+        }
+        if (jwtSecret != null && !jwtSecret.isBlank()) {
+            return "oauth2";
+        }
+        if (apiKey != null && !apiKey.isBlank()) {
+            return "api-key";
+        }
+        return "none";
+    }
+
+    /** V1.17: 是否启用 OAuth2 Bearer 强制鉴权 */
+    public boolean isOAuth2Enabled() {
+        return "oauth2".equals(resolvedAuthMode());
     }
 }

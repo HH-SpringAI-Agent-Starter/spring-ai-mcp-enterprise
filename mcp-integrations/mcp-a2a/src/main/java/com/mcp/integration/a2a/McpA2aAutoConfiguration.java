@@ -39,16 +39,29 @@ public class McpA2aAutoConfiguration {
     @ConditionalOnMissingBean
     public A2aBridgeService a2aBridgeService(ToolRegistry registry, McpToolManager toolManager,
                                              McpA2aProperties properties) {
-        log.info("🌐 [V1.15] 启用 A2A 网关: agent='{}' | api-key={} | tools={}",
+        log.info("🌐 [V1.17] 启用 A2A 网关: agent='{}' | authMode={} | api-key={} | oauth2={} | tools={}",
                 properties.getAgentName(),
+                properties.resolvedAuthMode(),
                 properties.getApiKey() == null || properties.getApiKey().isBlank() ? "off" : "on",
+                properties.isOAuth2Enabled() ? "on" : "off",
                 registry.count());
         return new A2aBridgeService(registry, toolManager, properties);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public A2aRpcController a2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties) {
-        return new A2aRpcController(bridgeService, properties);
+    public A2aJwtTokenValidator a2aJwtTokenValidator(McpA2aProperties properties) {
+        if (!properties.isOAuth2Enabled() || properties.getJwtSecret() == null || properties.getJwtSecret().isBlank()) {
+            return null; // 未启用 oauth2：不注册校验器
+        }
+        log.info("🔐 [V1.17] A2A OAuth2 Bearer 校验器已启用 (jwt-secret 与 mcp-auth 同值时令牌互通)");
+        return new A2aJwtTokenValidator(properties.getJwtSecret());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public A2aRpcController a2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties,
+                                             A2aJwtTokenValidator jwtValidator) {
+        return new A2aRpcController(bridgeService, properties, jwtValidator);
     }
 }

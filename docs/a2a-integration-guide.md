@@ -211,21 +211,88 @@ Agent Card 的 `securitySchemes` 向 A2A 编排器声明鉴权方案：
 - **oauth2**：`{ type: oauth2, flows.clientCredentials.tokenUrl = 配置端点 }`（默认对接 mcp-auth `/oauth2/token`）
 - **none**：空列表。显式 `none` 可覆盖 API Key 自动推导。
 
-> 安全提示：本模块始终在传输层应用 `api-key` 校验；securitySchemes 是向外部编排器**声明**能力，V1.17 起将实现 OAuth2 Client Credentials 实际的令牌交换与强制校验。
+> V1.17 起，声明与强制校验一致：声明 `oauth2` 就真的校验 Bearer JWT（RFC 6750），不再是"假安全"。
 
-## 九、演进路线（Roadmap）
+## 九、OAuth2 Bearer 强制鉴权（V1.17，mcp-auth 深度打通第二步）
+
+### 三种鉴权模式
+
+| 模式 | 配置 | 校验方式 | 适用场景 |
+| --- | --- | --- | --- |
+| `none` | （默认） | 不鉴权，可置于网关 API Key 之后 | 内部 / 开发环境 |
+| `api-key` | `mcp.enterprise.a2a.api-key` 非空 | `X-A2A-Key` 请求头 | 轻量服务间调用 |
+| `oauth2` | `mcp.enterprise.a2a.jwt-secret` 非空 | `Authorization: Bearer <JWT>`（RFC 6750） | 企业级，与 mcp-auth 令牌互通 |
+
+**模式推导优先级**：
+1. `security-scheme` 显式声明（oauth2 / api-key / none）→ 尊重声明
+2. `jwt-secret` 非空 → oauth2
+3. `api-key` 非空 → api-key
+4. 否则 → none
+
+### 与 mcp-auth 令牌互通
+
+`jwt-secret` 与 mcp-auth 的 `mcp.auth.jwt-secret` 配置同值时，mcp-auth OAuth2 Client Credentials 端点签发的 `access_token` 直接通过 A2A 网关校验。密钥派生规则完全一致（HS256，不足 32 字节补足到 32 字节）。
+
+### 配置示例
+
+```yaml
+mcp:
+  enterprise:
+    a2a:
+      enabled: true
+      # V1.17: OAuth2 Bearer 强制鉴权（与 mcp-auth 同密钥即互通）
+      jwt-secret: ${MCP_A2A_JWT_SECRET:***}
+      security-scheme: oauth2
+      oauth2-token-url: https://your-host/api/auth/oauth2/token
+```
+
+### curl 完整流程
+
+```bash
+# 1️⃣ 向 mcp-auth 换令牌（Client Credentials）
+TOKEN=*** -s -X POST http://localhost:8081/api/auth/oauth2/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=my-service&client_secret=change…cret" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# 2️⃣ 无令牌 → 401
+curl -s http://localhost:8081/a2a/health
+# → {"error":{"code":-32009,"message":"Authentication required (Authorization: Bearer <JWT> - RFC 6750)"}}
+
+# 3️⃣ 带 Bearer 令牌 → 通过
+curl -s http://localhost:8081/a2a/health -H "Authorization: Bearer $TOKEN"
+# → {"status":"UP","authMode":"oauth2",...}
+
+# 4️⃣ 伪造令牌 → 401
+curl -s http://localhost:8081/a2a/health -H "Authorization: Bearer ***"
+```
+
+### 未授权响应体（RFC 6750）
+
+oauth2 模式返回：
+```json
+{"jsonrpc":"2.0","id":null,"error":{"code":-32009,"message":"Authentication required (Authorization: Bearer <JWT> - RFC 6750)"}}
+```
+api-key 模式返回：
+```json
+{"jsonrpc":"2.0","id":null,"error":{"code":-32009,"message":"Authentication required (X-A2A-Key)"}}
+```
+
+## 十、演进路线（Roadmap）
 
 - [x] `message/stream` / `task/resubscribe`（SSE 流式，协议 streaming 能力置 true）—— **V1.16 已完成**
 - [x] `securitySchemes` 声明—— **V1.16 已完成（声明层）**
+- [x] OAuth2 Bearer 强制鉴权（RFC 6750，与 mcp-auth 令牌互通）—— **V1.17 已完成**
 - [ ] Signed Agent Card（A2A v1.2 加密签名，防伪造 Agent Card 攻击）
 - [ ] A2A Push Notifications（`task/notify` 回调）
-- [ ] OAuth2 Client Credentials 实际令牌交换 + 强制校验（复用 mcp-auth）
+- [ ] OAuth2 scope → MCP 工具级权限（token scope 映射 tools:read/tools:write）
 
-## 十、与市场信号对照
+## 十一、与市场信号对照
 
 | 市场信号 | 本模块对应能力 |
 | --- | --- |
 | 蚂蚁/etc JD「MCP、A2A 研发架构」 | ✅ mcp-core（MCP）+ mcp-a2a（A2A）双协议齐备 |
-| Sigma Software「MCP vs A2A 架构选型」岗位 | ✅ 提供 A2A 网关而非自研胶水层 |
-| A2A 卡片伪造攻击（2025 实测 exploit） | 🔒 提供 api-key 校验 + 规划 Signed Card |
-| Gartner：40% 企业应用年底含 Agent | ✅ 让 MCP 工具注册中心一次建设、两种协议消费 |
+| Sumo Logic $207-243K「OAuth/token 交换/多租户/限流」 | ✅ OAuth2 闭环（V1.17）+ 多租户（V1.13-14）+ 限流 |
+| Photon/Citi OAuth2+OWASP+MCP | ✅ mcp-auth OAuth2 Client Credentials + A2A Bearer 强制校验 |
+| A2A 认证三层：HTTPS+OAuth2+Signed Card | ✅ OAuth2 强制（V1.17）→ Signed Card（V1.18 规划） |
+| AAIF 250+ 会员（MCP+A2A 同治理） | ✅ 双协议网关定位与 AAIF RFP 新语言完全对齐 |

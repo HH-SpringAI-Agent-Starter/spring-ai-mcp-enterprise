@@ -28,7 +28,10 @@ import java.util.Map;
  * - POST {base}/rpc/stream        → V1.16: A2A SSE 流式（message/stream、task/resubscribe）
  * - GET  {base}/health            → 存活检查
  *
- * 可选鉴权：mcp.enterprise.a2a.api-key 非空时要求 X-A2A-Key 请求头。
+ * 鉴权模式（V1.17，按 resolvedAuthMode 自动推导）：
+ * - none    : 不启用网关层鉴权
+ * - api-key : 要求 X-A2A-Key 请求头（mcp.enterprise.a2a.api-key 非空）
+ * - oauth2  : 要求 Authorization: Bearer &lt;JWT&gt;（mcp.enterprise.a2a.jwt-secret 非空，RFC 6750，与 mcp-auth 令牌互通）
  * 说明：本控制器以 @Bean 方式注册（AutoConfiguration），Spring MVC 可自动发现，
  * 无需应用方调整 @ComponentScan。
  */
@@ -39,10 +42,17 @@ public class A2aRpcController {
 
     private final A2aBridgeService bridgeService;
     private final McpA2aProperties properties;
+    private final A2aJwtTokenValidator jwtValidator;
 
     public A2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties) {
+        this(bridgeService, properties, null);
+    }
+
+    public A2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties,
+                            A2aJwtTokenValidator jwtValidator) {
         this.bridgeService = bridgeService;
         this.properties = properties;
+        this.jwtValidator = jwtValidator;
     }
 
     // ===== Agent Card =====
@@ -77,10 +87,11 @@ public class A2aRpcController {
     public ResponseEntity<Object> rpc(@RequestBody(required = false) Map<String, Object> body,
                                       HttpServletRequest request) {
         if (!authorized(request)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                    "jsonrpc", "2.0", "id", null,
-                    "error", Map.of("code", -32009, "message", "Authentication required (X-A2A-Key)")
-            ));
+            Map<String, Object> errBody = new LinkedHashMap<>();
+            errBody.put("jsonrpc", "2.0");
+            errBody.put("id", null);
+            errBody.put("error", Map.of("code", -32009, "message", authErrorMessage()));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errBody);
         }
         if (body == null || !"2.0".equals(body.get("jsonrpc"))) {
             return invalidRequest(null, "Invalid JSON-RPC request (jsonrpc=2.0 required)");
@@ -124,7 +135,7 @@ public class A2aRpcController {
             try {
                 emitter.send(SseEmitter.event()
                         .name("error")
-                        .data(Map.of("code", -32009, "message", "Authentication required (X-A2A-Key)")));
+                        .data(Map.of("code", -32009, "message", authErrorMessage())));
             } catch (IOException e) {
                 // ignore
             }
@@ -219,12 +230,41 @@ public class A2aRpcController {
         health.put("agent", properties.getAgentName());
         health.put("skills", bridgeService.listSkills().size());
         health.put("streaming", properties.isStreamingEnabled());
+        health.put("authMode", properties.resolvedAuthMode());
         return health;
     }
 
     // ===== 私有 =====
 
+    /**
+     * V1.17: 按推导的鉴权模式校验请求：
+     * - none    : 放行（可置于网关 API Key 之后）
+     * - api-key : 校验 X-A2A-Key 请求头
+     * - oauth2  : 校验 Authorization: Bearer &lt;JWT&gt;（RFC 6750，与 mcp-auth 令牌互通）
+     */
     private boolean authorized(HttpServletRequest request) {
+        String mode = properties.resolvedAuthMode();
+        if ("none".equals(mode)) {
+            return true;
+        }
+        if ("oauth2".equals(mode)) {
+            if (jwtValidator == null) {
+                log.warn("🚫 A2A authMode=oauth2 但未注入 A2aJwtTokenValidator（需配置 mcp.enterprise.a2a.jwt-secret）");
+                return false;
+            }
+            String token = A2aJwtTokenValidator.extractBearerToken(request.getHeader("Authorization"));
+            if (token == null) {
+                log.warn("🚫 A2A OAuth2 鉴权失败: 缺少 Authorization: Bearer 头 from {}", request.getRemoteAddr());
+                return false;
+            }
+            String subject = jwtValidator.validate(token);
+            if (subject == null) {
+                return false;
+            }
+            request.setAttribute("a2a.subject", subject);
+            return true;
+        }
+        // api-key 模式（默认）
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             return true; // 未配置 api-key：不启用 A2A 网关层鉴权（可置于网关 API Key 之后）
@@ -237,6 +277,13 @@ public class A2aRpcController {
         return ok;
     }
 
+    /** 按当前鉴权模式给出错误提示（401 响应体 / SSE error 事件共用） */
+    private String authErrorMessage() {
+        return "oauth2".equals(properties.resolvedAuthMode())
+                ? "Authentication required (Authorization: Bearer <JWT> - RFC 6750)"
+                : "Authentication required (X-A2A-Key)";
+    }
+
     private ResponseEntity<Object> invalidRequest(Object id, String message) {
         return ResponseEntity.badRequest().body(Map.of(
                 "jsonrpc", "2.0", "id", id,
@@ -245,9 +292,10 @@ public class A2aRpcController {
     }
 
     private ResponseEntity<Object> unauthorized() {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                "jsonrpc", "2.0", "id", null,
-                "error", Map.of("code", -32009, "message", "Authentication required (X-A2A-Key)")
-        ));
+        Map<String, Object> errBody = new LinkedHashMap<>();
+        errBody.put("jsonrpc", "2.0");
+        errBody.put("id", null);
+        errBody.put("error", Map.of("code", -32009, "message", authErrorMessage()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errBody);
     }
 }
