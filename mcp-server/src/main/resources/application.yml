@@ -33,6 +33,11 @@ mcp:
       security-scheme: ${MCP_A2A_SECURITY_SCHEME:}
       # V1.16: security-scheme=oauth2 时的 token 端点（默认对接 mcp-auth /oauth2/token）
       oauth2-token-url: ${MCP_A2A_OAUTH2_TOKEN_URL:}
+      # V1.18: Signed Agent Card 签名密钥（A2A v1.2 供应链安全基线）——非空时 agent-card 返回
+      # {agentCard, signature} 信封 + X-Agent-Card-Signature 头；与 mcp.auth.jwt-secret 同值可实现
+      # "同一把密钥：mcp-auth 发证 + 网关验签 + Agent Card 签名"完整闭环
+      card-signing-key: ${MCP_A2A_CARD_SIGNING_KEY:}
+      card-key-id: ${MCP_A2A_CARD_KEY_ID:mcp-a2a-1}
   tool:
     http:
       enabled: true

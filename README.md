@@ -173,7 +173,7 @@ mvn clean install -Pfull
 
 > 📖 详细配置见 [docs/alibaba-integration-guide.md](docs/alibaba-integration-guide.md)
 
-### 🌐 MCP + A2A 双协议网关（V1.15 → V1.16）
+### 🌐 MCP + A2A 双协议网关（V1.15 → V1.18）
 
 **Agent 天花板能力：一个网关同时讲 MCP 和 A2A 两种语言。** 2026-08-20 Google A2A 正式并入 Linux Foundation AAIF（与 MCP 同框架治理），「MCP（Agent→工具）+ A2A（Agent→Agent）」双层栈已成为企业参考架构——蚂蚁集团等 JD 已明确要求「MCP + A2A 研发架构」。
 
@@ -181,13 +181,18 @@ mvn clean install -Pfull
 
 | 端点 | 说明 |
 | --- | --- |
-| `GET /.well-known/agent-card.json` | **A2A 协议标准发现路径**（Agent Card：技能列表自动派生自工具注册中心 + securitySchemes 声明） |
-| `GET /a2a/agent-card` | Agent Card 别名 |
+| `GET /.well-known/agent-card.json` | **A2A 协议标准发现路径**（Agent Card：技能列表自动派生自工具注册中心 + securitySchemes 声明；V1.18 配置签名后返回 `SignedAgentCard` 信封） |
+| `GET /a2a/agent-card` | Agent Card 别名（同上，可签名） |
 | `POST /a2a/rpc` | A2A JSON-RPC 2.0 分派：`message/send` / `task/send` / `task/get` / `task/cancel` / `agent/quote` |
 | `POST /a2a/rpc/stream` | **V1.16 SSE 流式**：`message/stream`（异步实时推状态）/ `task/resubscribe`（历史重放） |
-| `GET /a2a/health` | 存活检查 + 技能数 |
+| `GET /a2a/agent-card/verify` | **V1.18 自验证端点**：输出签名校验结果（valid/algorithm/keyId/signedAt） |
+| `GET /a2a/health` | 存活检查 + 技能数 + authMode + signedCard |
 
 V1.16 起 A2A 网关支持 **SSE 流式调度**（TaskStatusUpdateEvent / TaskArtifactUpdateEvent / MessageDeliveryEvent），并在 Agent Card 上 **声明 securitySchemes**（api-key / oauth2，mcp-auth 打通第一步）。
+
+**V1.17 强制鉴权：** 三种模式（none / api-key / oauth2）按配置自动推导，`jwt-secret` 与 mcp-auth 同值时令牌互通——mcp-auth Client Credentials 签发的 `access_token` 可直接通过网关 Bearer 校验（RFC 6750）。
+
+**V1.18 Signed Agent Card（A2A v1.2 供应链安全基线）：** 配置 `card-signing-key` 后，agent-card 返回 `{agentCard, signature}` 信封（JWS HS256 + 规范化 JSON），响应头同时携带 `X-Agent-Card-Signature`；客户端可用 `A2aAgentCardSigner.verify(jws, secret)` 一行验签，防 DNS 劫持 / 中间人篡改能力发现——与 mcp-auth / 网关鉴权同钥闭环。
 
 ```yaml
 mcp:
@@ -198,6 +203,9 @@ mcp:
       streaming-enabled: ${MCP_A2A_STREAMING_ENABLED:true}  # V1.16 SSE 流式
       security-scheme: ${MCP_A2A_SECURITY_SCHEME:}          # V1.16 none|api-key|oauth2
       oauth2-token-url: ${MCP_A2A_OAUTH2_TOKEN_URL:}        # V1.16 oauth2 token 端点
+      jwt-secret: ${MCP_A2A_JWT_SECRET:}                    # V1.17 启用 OAuth2 Bearer 强制鉴权（与 mcp-auth 同值互通）
+      card-signing-key: ${MCP_A2A_CARD_SIGNING_KEY:}        # V1.18 Signed Agent Card 签名密钥（非空启用）
+      card-key-id: ${MCP_A2A_CARD_KEY_ID:mcp-a2a-1}         # V1.18 JWS kid
 ```
 
 ```bash
@@ -436,6 +444,11 @@ docker compose --profile full up -d
 | **V1.11** | **多租户 Row-level 隔离（mcp-tenant：TenantContext + TenantAwareJdbcTemplate + fail-closed）+ 市场雷达 08-26（多租户进 JD）** | ✅ 已完成 |
 | **V1.12** | **多租户 Schema 级隔离（TenantSchemaDataSource 自动切换 + provision + 方言适配）+ 市场雷达 08-27（Sumo $207-243K 平台岗/Upwork 官方 MCP）** | ✅ 已完成 |
 | **V1.13** | **实例级多租户（TenantInstanceRegistry 每租户独立 DataSource/连接池 + 运行时开通/停用 + ${ENV} 密钥占位 + initialize-DDL + 三模式互斥守卫）+ 市场雷达 08-29（Anthropic $300K/NTT DATA/Cotality $129-160K/Upwork 双新单）** | ✅ 已完成 |
+| **V1.15** | **MCP + A2A 双协议网关（mcp-integrations/mcp-a2a：工具注册中心自动派生 Agent Card/Skill + JSON-RPC 分派 + .well-known 标准发现）+ 市场雷达 08-31** | ✅ 已完成 |
+| **V1.16** | **A2A SSE 流式（message/stream + task/resubscribe）+ Agent Card securitySchemes 声明（mcp-auth 打通第一步）+ 市场雷达 09-01** | ✅ 已完成 |
+| **V1.17** | **A2A 网关 OAuth2 Bearer 强制鉴权（RFC 6750，A2aJwtTokenValidator 与 mcp-auth 同密钥派生）+ 三模式 authMode 推导 + 市场雷达 09-02（Photon-Citi/SumoLogic/TalentAlly/AAIF）** | ✅ 已完成 |
+| **V1.18** | **Signed Agent Card（A2A v1.2 供应链安全基线：JWS HS256 签名 + 规范化 JSON + X-Agent-Card-Signature 头 + 自验证端点 + 9 新测试）+ 市场雷达 09-03（A2A v1.0 GA/Greelow $6-9K·月/Sumsub/Upwork MCP Server）** | ✅ 已完成 |
+
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
 ---

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -23,7 +24,8 @@ import java.util.Map;
  * A2A JSON-RPC HTTP 端点
  *
  * 路由（basePath 默认 /a2a）：
- * - GET  {base}/agent-card        → Agent Card（技能列表派生自 MCP 工具注册中心）
+ * - GET  {base}/agent-card        → Agent Card（技能列表派生自 MCP 工具注册中心；V1.18 起可返回签名信封）
+ * - GET  {base}/agent-card/verify → V1.18: 自验证结果（demo / 巡检脚本输出）
  * - POST {base}/rpc               → A2A JSON-RPC 2.0 分派（message/send、task/send、task/get、task/cancel、agent/quote）
  * - POST {base}/rpc/stream        → V1.16: A2A SSE 流式（message/stream、task/resubscribe）
  * - GET  {base}/health            → 存活检查
@@ -32,6 +34,8 @@ import java.util.Map;
  * - none    : 不启用网关层鉴权
  * - api-key : 要求 X-A2A-Key 请求头（mcp.enterprise.a2a.api-key 非空）
  * - oauth2  : 要求 Authorization: Bearer &lt;JWT&gt;（mcp.enterprise.a2a.jwt-secret 非空，RFC 6750，与 mcp-auth 令牌互通）
+ * 签名（V1.18）：card-signing-key 非空时，agent-card 返回 {agentCard, signature} 信封 + X-Agent-Card-Signature 头
+ * （A2A v1.2 供应链安全基线：签名 Agent Card，防 DNS 劫持 / 中间人篡改能力发现）
  * 说明：本控制器以 @Bean 方式注册（AutoConfiguration），Spring MVC 可自动发现，
  * 无需应用方调整 @ComponentScan。
  */
@@ -43,28 +47,35 @@ public class A2aRpcController {
     private final A2aBridgeService bridgeService;
     private final McpA2aProperties properties;
     private final A2aJwtTokenValidator jwtValidator;
+    private final A2aAgentCardSigner cardSigner;
 
     public A2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties) {
-        this(bridgeService, properties, null);
+        this(bridgeService, properties, null, null);
     }
 
     public A2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties,
                             A2aJwtTokenValidator jwtValidator) {
+        this(bridgeService, properties, jwtValidator, null);
+    }
+
+    public A2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties,
+                            A2aJwtTokenValidator jwtValidator, A2aAgentCardSigner cardSigner) {
         this.bridgeService = bridgeService;
         this.properties = properties;
         this.jwtValidator = jwtValidator;
+        this.cardSigner = cardSigner;
     }
 
     // ===== Agent Card =====
 
     @GetMapping(path = "${mcp.enterprise.a2a.base-path:/a2a}/agent-card", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Object agentCard(HttpServletRequest request) {
+    public Object agentCard(HttpServletRequest request, HttpServletResponse response) {
         if (!authorized(request)) {
             return unauthorized();
         }
         String baseUrl = request.getRequestURL().toString().replace("/agent-card", "");
-        return bridgeService.buildAgentCard(baseUrl);
+        return maybeSign(bridgeService.buildAgentCard(baseUrl), response);
     }
 
     /**
@@ -72,12 +83,68 @@ public class A2aRpcController {
      */
     @GetMapping(path = "/.well-known/agent-card.json", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public Object agentCardWellKnown(HttpServletRequest request) {
+    public Object agentCardWellKnown(HttpServletRequest request, HttpServletResponse response) {
         if (!authorized(request)) {
             return unauthorized();
         }
         String baseUrl = request.getRequestURL().toString().replace("/.well-known/agent-card.json", "");
-        return bridgeService.buildAgentCard(baseUrl);
+        return maybeSign(bridgeService.buildAgentCard(baseUrl), response);
+    }
+
+    /**
+     * V1.18: 自验证 Agent Card 签名（demo + 巡检脚本输出）。
+     * 对当前生成的 Agent Card 签名后再验证，输出结果（valid / algorithm / keyId / signedAt）。
+     */
+    @GetMapping(path = "${mcp.enterprise.a2a.base-path:/a2a}/agent-card/verify", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Object agentCardVerify(HttpServletRequest request) {
+        if (!authorized(request)) {
+            return unauthorized();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (cardSigner == null || !properties.isSignedCardEnabled()) {
+            result.put("valid", false);
+            result.put("error", "Signed Agent Card disabled (set mcp.enterprise.a2a.card-signing-key)");
+            return result;
+        }
+        try {
+            String baseUrl = request.getRequestURL().toString().replace("/agent-card/verify", "");
+            Object card = bridgeService.buildAgentCard(baseUrl);
+            SignedAgentCard signed = cardSigner.sign((A2aAgentCard) card);
+            A2aAgentCardSigner.VerificationResult verified = cardSigner.verify(signed.signature());
+            result.put("valid", verified.valid());
+            result.put("algorithm", signed.algorithm());
+            result.put("keyId", signed.keyId());
+            result.put("signedAt", signed.signedAt());
+            if (!verified.valid()) {
+                result.put("error", verified.error());
+            }
+        } catch (Exception e) {
+            log.warn("Agent Card 自验证失败: {}", e.getMessage());
+            result.put("valid", false);
+            result.put("error", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * V1.18: 签名后响应升级——
+     * - 未启用签名（cardSigner 为 null）：直接返回原始 Agent Card
+     * - 启用签名：返回 SignedAgentCard 信封 + X-Agent-Card-Signature 响应头
+     * - 签名异常（防御性）：退回原始卡片，不影响服务可用性
+     */
+    private Object maybeSign(Object card, HttpServletResponse response) {
+        if (cardSigner == null || !(card instanceof A2aAgentCard agentCard)) {
+            return card;
+        }
+        try {
+            SignedAgentCard signed = cardSigner.sign(agentCard);
+            response.setHeader("X-Agent-Card-Signature", signed.signature());
+            return signed;
+        } catch (Exception e) {
+            log.warn("Agent Card 签名失败，退回原始卡片: {}", e.getMessage());
+            return card;
+        }
     }
 
     // ===== JSON-RPC =====
@@ -231,6 +298,10 @@ public class A2aRpcController {
         health.put("skills", bridgeService.listSkills().size());
         health.put("streaming", properties.isStreamingEnabled());
         health.put("authMode", properties.resolvedAuthMode());
+        health.put("signedCard", properties.isSignedCardEnabled());
+        if (properties.isSignedCardEnabled()) {
+            health.put("cardKeyId", properties.getCardKeyId());
+        }
         return health;
     }
 

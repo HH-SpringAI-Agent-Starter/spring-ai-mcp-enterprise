@@ -278,12 +278,97 @@ api-key 模式返回：
 {"jsonrpc":"2.0","id":null,"error":{"code":-32009,"message":"Authentication required (X-A2A-Key)"}}
 ```
 
+## 十、Signed Agent Card 签名（V1.18，A2A v1.2 供应链安全基线）
+
+> A2A v1.0 GA（Linux Foundation）官方特性：Signed Agent Cards（JWS + JSON Canonicalization）。
+> 签名解决 Agent Card 的两大安全问题：完整性（防篡改）与真实性（防伪造卡片 / 相似域名欺骗）。
+> BeyondScale CISO 指南将 "Agent cards are unsigned by default" 列为五大攻击模式之首。
+
+### 配置
+
+```yaml
+mcp:
+  enterprise:
+    a2a:
+      enabled: true
+      # V1.18: 卡片签名密钥——非空时 agent-card 返回 {agentCard, signature} 信封
+      # 与 mcp.auth.jwt-secret / mcp.enterprise.a2a.jwt-secret 同值 →
+      # "同一把密钥：mcp-auth 发证 + A2A 网关验签 + Agent Card 签名"完整闭环
+      card-signing-key: ${MCP_A2A_CARD_SIGNING_KEY:}
+      card-key-id: ${MCP_A2A_CARD_KEY_ID:mcp-a2a-1}
+```
+
+### 响应格式（启用签名后）
+
+`GET /a2a/agent-card` 与 `GET /.well-known/agent-card.json` 返回 `SignedAgentCard` 信封：
+
+```json
+{
+  "agentCard": { "name": "MCP Enterprise A2A Gateway", "skills": [...] },
+  "signature": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXUyIsImtpZCI6Im1jcC1hMmEtMSJ9.eyJ... .<sig>",
+  "algorithm": "HS256",
+  "keyId": "mcp-a2a-1",
+  "signedAt": "2026-09-03T13:30:00Z"
+}
+```
+
+同时响应头携带 `X-Agent-Card-Signature`（JWS），兼容纯 header 传递的消费方。
+
+### JWS 结构（RFC 7515 Compact Serialization）
+
+```
+base64url(header) . base64url(canonicalCardJson) . base64url(HMAC-SHA256(signingInput, key))
+header = {"alg":"HS256","typ":"JWS","kid":"<card-key-id>"}
+```
+
+- **规范化 JSON**：sorted keys + 无空白（Jackson `ORDER_MAP_ENTRIES_BY_KEYS`），跨语言可复现
+- **密钥派生**：与 mcp-auth `McpJwtTokenProvider` 完全一致（<32 字节补齐到 32 字节）
+- **防算法混淆**：header `alg` 非 HS256（含 `alg=none`）一律拒绝
+- **常量时间比较**：`MessageDigest.isEqual` 防时序侧信道
+- **防御性降级**：签名异常时退回原始卡片，不影响可用性
+
+### 客户端校验（Java）
+
+```java
+// 编排器拿到信封后，用共享密钥验签——通过才允许继续 token 交换 / 调 RPC
+A2aAgentCardSigner.VerificationResult r =
+        A2aAgentCardSigner.verify(envelope.getSignature(), secret);
+if (r.valid()) {
+    A2aAgentCard card = r.toCard();   // 校验通过才可信
+} else {
+    throw new SecurityException("Agent Card 签名校验失败: " + r.error());
+}
+```
+
+### curl 完整流程
+
+```bash
+# 1️⃣ 取签名卡片（启用签名后为信封格式）
+curl -s http://localhost:8081/a2a/agent-card | python3 -m json.tool
+# → {"agentCard":{...},"signature":"eyJ... .<sig>","algorithm":"HS256","keyId":"mcp-a2a-1",...}
+
+# 2️⃣ 自验证端点（demo / 巡检）
+curl -s http://localhost:8081/a2a/agent-card/verify
+# → {"valid":true,"algorithm":"HS256","keyId":"mcp-a2a-1","signedAt":"2026-09-03T13:30:00Z"}
+
+# 3️⃣ 响应头也带签名（兼容 header 传递）
+curl -sI http://localhost:8081/a2a/agent-card | grep -i x-agent-card-signature
+# X-Agent-Card-Signature: eyJhbGciOiJIUzI1NiIs...
+```
+
+### 安全模型（三层安全，缺一不可）
+
+| 层 | 解决的问题 | 验证方 |
+| --- | --- | --- |
+| OAuth2 Bearer（V1.17） | 调用方是否有权限调 RPC | 被调方（网关） |
+| Signed Agent Card（V1.18） | 能力声明是否真的出自该 agent | 调用方（编排器） |
+
 ## 十、演进路线（Roadmap）
 
 - [x] `message/stream` / `task/resubscribe`（SSE 流式，协议 streaming 能力置 true）—— **V1.16 已完成**
 - [x] `securitySchemes` 声明—— **V1.16 已完成（声明层）**
 - [x] OAuth2 Bearer 强制鉴权（RFC 6750，与 mcp-auth 令牌互通）—— **V1.17 已完成**
-- [ ] Signed Agent Card（A2A v1.2 加密签名，防伪造 Agent Card 攻击）
+- [x] Signed Agent Card（A2A v1.2 加密签名，防伪造 Agent Card 攻击） —— **V1.18 已完成（JWS HS256 + 规范化 JSON + 客户端验签）**
 - [ ] A2A Push Notifications（`task/notify` 回调）
 - [ ] OAuth2 scope → MCP 工具级权限（token scope 映射 tools:read/tools:write）
 
@@ -294,5 +379,5 @@ api-key 模式返回：
 | 蚂蚁/etc JD「MCP、A2A 研发架构」 | ✅ mcp-core（MCP）+ mcp-a2a（A2A）双协议齐备 |
 | Sumo Logic $207-243K「OAuth/token 交换/多租户/限流」 | ✅ OAuth2 闭环（V1.17）+ 多租户（V1.13-14）+ 限流 |
 | Photon/Citi OAuth2+OWASP+MCP | ✅ mcp-auth OAuth2 Client Credentials + A2A Bearer 强制校验 |
-| A2A 认证三层：HTTPS+OAuth2+Signed Card | ✅ OAuth2 强制（V1.17）→ Signed Card（V1.18 规划） |
+| A2A 认证三层：HTTPS+OAuth2+Signed Card | ✅ OAuth2 强制（V1.17）→ **Signed Card（V1.18 已完成，JWS 签名）** |
 | AAIF 250+ 会员（MCP+A2A 同治理） | ✅ 双协议网关定位与 AAIF RFP 新语言完全对齐 |

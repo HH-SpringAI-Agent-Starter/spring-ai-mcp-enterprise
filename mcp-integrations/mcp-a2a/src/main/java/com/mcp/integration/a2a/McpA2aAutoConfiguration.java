@@ -58,6 +58,20 @@ public class McpA2aAutoConfiguration {
         return new A2aJwtTokenValidator(properties.getJwtSecret());
     }
 
+    /**
+     * V1.18: Signed Agent Card signer. Registered only when card-signing-key is set.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public A2aAgentCardSigner a2aAgentCardSigner(McpA2aProperties properties) {
+        if (!properties.isSignedCardEnabled()) {
+            return null; // card-signing-key not set: signing disabled, agent-card returns plain card
+        }
+        log.info("🖋️ [V1.18] A2A Signed Agent Card signer enabled (alg={}, kid={})",
+                A2aAgentCardSigner.ALG_HS256, properties.getCardKeyId());
+        return new A2aAgentCardSigner(properties.getCardSigningKey(), properties.getCardKeyId());
+    }
+
     @Bean
     @ConditionalOnMissingBean
     public A2aRpcController a2aRpcController(A2aBridgeService bridgeService, McpA2aProperties properties,

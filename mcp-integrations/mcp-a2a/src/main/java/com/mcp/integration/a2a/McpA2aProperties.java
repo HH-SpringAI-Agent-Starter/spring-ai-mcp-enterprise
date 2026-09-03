@@ -64,6 +64,12 @@ public class McpA2aProperties {
     /** V1.16: Agent Card securitySchemes 声明：none | api-key | oauth2（默认随 api-key 自动推导） */
     private String securityScheme = "";
 
+    /** V1.18: Signed Agent Card signing key (A2A v1.2 supply-chain baseline). */
+    private String cardSigningKey = "";
+
+    /** V1.18: JWS header kid for card signing (default mcp-a2a-1). */
+    private String cardKeyId = A2aAgentCardSigner.DEFAULT_KEY_ID;
+
     /** V1.16: security-scheme=oauth2 时的 token 端点（对接 mcp-auth OAuth2 Client Credentials） */
     private String oauth2TokenUrl = "";
 
@@ -169,6 +175,27 @@ public class McpA2aProperties {
 
     public void setOauth2TokenUrl(String oauth2TokenUrl) {
         this.oauth2TokenUrl = oauth2TokenUrl;
+    }
+
+    public String getCardSigningKey() {
+        return cardSigningKey;
+    }
+
+    public void setCardSigningKey(String cardSigningKey) {
+        this.cardSigningKey = cardSigningKey;
+    }
+
+    public String getCardKeyId() {
+        return cardKeyId;
+    }
+
+    public void setCardKeyId(String cardKeyId) {
+        this.cardKeyId = cardKeyId;
+    }
+
+    /** V1.18: signed card enabled when card-signing-key is non-blank. */
+    public boolean isSignedCardEnabled() {
+        return cardSigningKey != null && !cardSigningKey.isBlank();
     }
 
     /** 推导实际 securityScheme（Agent Card securitySchemes 声明）：显式配置优先，否则与鉴权模式对齐 */
