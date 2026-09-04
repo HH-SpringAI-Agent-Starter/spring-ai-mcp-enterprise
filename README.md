@@ -223,6 +223,50 @@ curl -X POST http://localhost:8081/a2a/rpc -H 'Content-Type: application/json' -
 
 ---
 
+### 🎯 工具级 Scope 权限映射（V1.19，Token Scope → Tool ACL）
+
+**「拿到令牌」≠「能调所有工具」。** OAuth2 `scope` 细粒度映射到 MCP 工具级权限，对标企业 JD：Greelow *per-user scoping* / NTT DATA *authorization checks + least-privilege* / Sumo Logic *token 权限 + 多租户隔离*。
+
+| 能力 | 说明 |
+| --- | --- |
+| `ScopeMatcher` | 企业 scope 通配匹配：精确 `tools:finance:read` ／ 单段 `tools:finance:*` ／ 多段 `tools:**` ／ 全匹配 `*` |
+| `ToolScopePolicy` | 授权决策：工具显式声明 > `tool-overrides` > `category-defaults` > 无约束放行（向后兼容） |
+| `invokeWithScope` | 执行前 fail-closed：拒绝时**执行器零调用**，返回 403 语义 `insufficient_scope` |
+| REST `/invoke` | 越权 → **HTTP 403** + `WWW-Authenticate: Bearer error="insufficient_scope"`（RFC 6750 §3.1）+ 审计记录 |
+| Streamable HTTP | JSON-RPC 错误码 **-32090** `insufficient_scope` + HTTP 403 + `WWW-Authenticate` |
+| `tasks/create` | **scope 预检**：无权限任务不入队（fail-fast） |
+| 能力自描述 | `tools/list`/`discover` 输出 `requiredScopes`；`GET /api/mcp/scope/policy` 观察全局授权矩阵 |
+
+```yaml
+mcp:
+  enterprise:
+    security:
+      scope:
+        enabled: ${MCP_SCOPE_ENABLED:false}      # 总开关（默认 false = 与 V1.18 行为一致）
+        category-defaults:                        # 分类兑底：finance → tools:finance:*
+          finance: "tools:finance:*"
+          database: "tools:database:*"
+        tool-overrides:                           # 工具名覆盖（运维免改代码）
+          finance_indicator: "tools:finance:read"
+```
+
+```bash
+# 1. 拿受限令牌（仅 tools:finance:read）
+TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/oauth2/token \
+  -d 'grant_type=client_credentials&client_id=mcp-service&client_secret=change-me-client-secret&scope=tools:finance:read' | jq -r .access_token)
+# 2. 调金融工具 → 成功
+curl -s -X POST http://localhost:8081/api/mcp/tools/finance_indicator/invoke \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"indicator":"cagr","params":{"beginValue":100,"endValue":200,"years":3}}'
+# 3. 调数据库工具 → 403 insufficient_scope
+curl -s -i -X POST http://localhost:8081/api/mcp/tools/db_query/invoke \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"sql":"SELECT 1"}'
+```
+
+> 📖 完整指南见 [docs/scope-authorization-guide.md](docs/scope-authorization-guide.md)，设计解读见 [docs/blog-java-mcp-scope-acl-2026-09-04.md](docs/blog-java-mcp-scope-acl-2026-09-04.md)
+
+---
+
 ## 🚀 快速开始
 
 ### 前提条件
@@ -448,6 +492,7 @@ docker compose --profile full up -d
 | **V1.16** | **A2A SSE 流式（message/stream + task/resubscribe）+ Agent Card securitySchemes 声明（mcp-auth 打通第一步）+ 市场雷达 09-01** | ✅ 已完成 |
 | **V1.17** | **A2A 网关 OAuth2 Bearer 强制鉴权（RFC 6750，A2aJwtTokenValidator 与 mcp-auth 同密钥派生）+ 三模式 authMode 推导 + 市场雷达 09-02（Photon-Citi/SumoLogic/TalentAlly/AAIF）** | ✅ 已完成 |
 | **V1.18** | **Signed Agent Card（A2A v1.2 供应链安全基线：JWS HS256 签名 + 规范化 JSON + X-Agent-Card-Signature 头 + 自验证端点 + 9 新测试）+ 市场雷达 09-03（A2A v1.0 GA/Greelow $6-9K·月/Sumsub/Upwork MCP Server）** | ✅ 已完成 |
+| **V1.19** | **工具级 Scope 权限映射（Token Scope → Tool ACL：ScopeMatcher 通配 + ToolScopePolicy 决策 + invokeWithScope fail-closed + REST 403 RFC 6750 insufficient_scope + Streamable HTTP -32090 + tasks/create 预检 + tools/list 暴露 requiredScopes + scope/policy 观察端点，26 新测试）+ 市场雷达 09-04（Commerzbank MCP 网关岗/NTT DATA Empiric 价目）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 

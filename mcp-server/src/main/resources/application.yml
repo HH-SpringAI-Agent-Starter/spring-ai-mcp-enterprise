@@ -15,6 +15,18 @@ mcp:
       api-key-enabled: true
       rate-limit-enabled: true
       audit-log-enabled: true
+      # V1.19: 工具级 Scope 权限映射（Token Scope → Tool ACL，RFC 6750 insufficient_scope）
+      # enabled=false 时行为与 V1.18 完全一致（向后兼容）；开启后仅拦截"携带 Bearer 令牌且越权"的调用方
+      scope:
+        enabled: ${MCP_SCOPE_ENABLED:false}
+        # 分类兑底：未显式声明 scope 的工具按分类映射（支持 * / ** 通配）
+        category-defaults:
+          finance: "tools:finance:*"
+          database: "tools:database:*"
+          search: "tools:search:*"
+        # 工具名覆盖：改配置即可调整单个工具权限，无需改代码
+        tool-overrides:
+          finance_indicator: "tools:finance:read"
     monitor:
       enabled: true
     registry:

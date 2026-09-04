@@ -3,10 +3,21 @@ package com.mcp.enterprise.server;
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import com.mcp.enterprise.core.model.ToolDefinition;
 import com.mcp.enterprise.core.registry.ToolRegistry;
+import com.mcp.enterprise.core.security.McpOAuth2Manager;
 import com.mcp.enterprise.core.security.McpSecurityManager;
+import com.mcp.enterprise.core.security.ToolScopePolicy;
 import com.mcp.enterprise.core.tool.McpToolManager;
+import com.mcp.enterprise.server.security.McpBearerAuthFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +29,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api/mcp")
 public class McpServerController {
+
+    private static final Logger log = LoggerFactory.getLogger(McpServerController.class);
 
     private final ToolRegistry registry;
     private final McpSecurityManager securityManager;
@@ -93,12 +106,79 @@ public class McpServerController {
     @PostMapping("/tools/{name}/invoke")
     public Map<String, Object> invokeTool(@PathVariable String name,
                                           @RequestBody Map<String, Object> params,
-                                          @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+                                          @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+                                          HttpServletRequest request, HttpServletResponse response) throws IOException {
+
+        // ===== V1.19: 工具级 Scope 授权（Token Scope → Tool ACL，RFC 6750 insufficient_scope） =====
+        // 携带 Bearer 令牌（mcp.tokenInfo 由 McpBearerAuthFilter 写入）→ 强制 scope 校验；
+        // 无令牌上下文（旧版 X-API-Key 路径）→ 不做 scope 拦截，保持向后兼容
+        Object tokenInfoAttr = request.getAttribute(McpBearerAuthFilter.ATTR_TOKEN_INFO);
+        if (tokenInfoAttr instanceof McpOAuth2Manager.TokenInfo tokenInfo) {
+            Map<String, Object> result = toolManager.invokeWithScope(name, params, tokenInfo.scopes()).block();
+            if (result != null && result.containsKey("httpStatus")) {
+                int status = ((Number) result.get("httpStatus")).intValue();
+                if (status == 403) {
+                    log.warn("⛔ 工具级 scope 拒绝(REST): tool={}", name);
+                    securityManager.audit(apiKey, name, "invoke", false,
+                            "insufficient_scope required=" + result.get("requiredScopes"));
+                    // RFC 6750 §3.1: 403 + WWW-Authenticate: Bearer error="insufficient_scope"
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    response.setHeader("WWW-Authenticate",
+                            "Bearer realm=\"mcp-enterprise\", error=\"insufficient_scope\", " +
+                                    "error_description=\"The request requires higher privileges than provided by the access token\"");
+                    response.getWriter().write("{\"success\":false,\"error\":\"insufficient_scope\"," +
+                            "\"tool\":\"" + name + "\"," +
+                            "\"requiredScopes\":" + result.get("requiredScopes") + "," +
+                            "\"tokenScopes\":" + result.get("tokenScopes") + "}");
+                    return null;
+                }
+            }
+            // 安全审计
+            securityManager.audit(apiKey, name, "invoke", true, "params=" + params.keySet());
+            return result;
+        }
+
         // 安全审计
         securityManager.audit(apiKey, name, "invoke", true, "params=" + params.keySet());
 
         // 通过 toolManager 执行
         return toolManager.invoke(name, params).block();
+    }
+
+    // ===== V1.19: 工具级 Scope 授权（Token Scope → Tool ACL） =====
+
+    /**
+     * GET /api/mcp/scope/policy — Scope 授权策略观察端点。
+     * 返回：开关状态 + 已解析的各工具所需 scope（客户端可在令牌签发时按需申请）。
+     */
+    @GetMapping("/scope/policy")
+    public Map<String, Object> scopePolicy() {
+        ToolScopePolicy policy = toolManager.getScopePolicy();
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (policy == null || !policy.isEnabled()) {
+            result.put("enabled", false);
+            result.put("message", "Tool-level scope enforcement is disabled (V1.18 compatible behavior)");
+            return result;
+        }
+        result.put("enabled", true);
+        result.put("scopeMatch", "exact|*|**");
+        result.put("insufficientScopeHttpStatus", 403);
+        result.put("insufficientScopeJsonRpcCode", -32090);
+
+        List<ToolDefinition> tools = registry.listAll().collectList().block();
+        Map<String, Object> perTool = new LinkedHashMap<>();
+        if (tools != null) {
+            for (ToolDefinition def : tools) {
+                Set<String> required = policy.resolveRequiredScopes(def);
+                if (!required.isEmpty()) {
+                    perTool.put(def.getName(), required);
+                }
+            }
+        }
+        result.put("tools", perTool);
+        return result;
     }
 
     // ===== 健康检查 =====

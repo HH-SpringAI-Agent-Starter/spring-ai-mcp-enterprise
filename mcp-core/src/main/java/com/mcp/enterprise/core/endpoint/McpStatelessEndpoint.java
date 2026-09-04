@@ -3,6 +3,7 @@ package com.mcp.enterprise.core.endpoint;
 import com.mcp.enterprise.core.model.ToolDefinition;
 import com.mcp.enterprise.core.ratelimit.GatewayRateLimitManager;
 import com.mcp.enterprise.core.registry.ToolRegistry;
+import com.mcp.enterprise.core.security.ToolScopePolicy;
 import com.mcp.enterprise.core.tool.McpToolManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +93,11 @@ public class McpStatelessEndpoint {
                     "extensions", Map.of(  // ✨ Extensions 一等公民
                             "supported", true,
                             "namespaces", List.of("mcp-enterprise", "custom")
+                    ),
+                    "security", Map.of(  // ✨ V1.19 工具级 Scope 授权声明
+                            "scopeEnforcement", true,
+                            "scopeMatch", "exact|*|**",
+                            "insufficientScopeCode", -32090
                     )
             ),
             "transport", Map.of(
@@ -138,7 +144,6 @@ public class McpStatelessEndpoint {
         this.toolManager = toolManager;
         initDefaultRateLimitRules();
     }
-
     /**
      * V1.7: 默认网关限流规则（可通过管理端点或配置覆盖）
      * - tools/list: 5 QPS（目录拉取防刷）
@@ -159,10 +164,18 @@ public class McpStatelessEndpoint {
     // ===== 无状态消息处理 (2026-07-28) =====
 
     /**
-     * 处理 MCP JSON-RPC 消息（无状态模式）
-     * 每个请求独立处理，不依赖 session
+     * 处理 MCP JSON-RPC 消息（无状态模式，兼容旧签名：无令牌上下文，scope 不拦截）
      */
     public Map<String, Object> handleStatelessMessage(Map<String, Object> message, String traceId) {
+        return handleStatelessMessage(message, traceId, null);
+    }
+
+    /**
+     * 处理 MCP JSON-RPC 消息（无状态模式，V1.19：按令牌 scope 做工具级授权）
+     *
+     * @param tokenScopes 令牌携带的 scope 集合；null 表示调用方无令牌上下文（不拦截，向后兼容）
+     */
+    public Map<String, Object> handleStatelessMessage(Map<String, Object> message, String traceId, Set<String> tokenScopes) {
         if (message == null || !message.containsKey("method")) {
             return errorResponse(null, -32600, "Invalid Request: missing 'method'");
         }
@@ -184,17 +197,17 @@ public class McpStatelessEndpoint {
             return error;
         }
 
-        log.debug("MCP 无状态消息: method={}, id={}, traceId={}", method, id, traceId);
+        log.debug("MCP 无状态消息: method={}, id={}, traceId={}, scopes={}", method, id, traceId, tokenScopes);
 
         // 添加 traceId 到响应
         Map<String, Object> result = switch (method) {
             case "initialize" -> handleInitialize(id, params);
             case "tools/list" -> handleToolsList(id, params);
-            case "tools/call" -> handleToolCall(id, params);
+            case "tools/call" -> handleToolCall(id, params, tokenScopes);
             case "tools/listChanged" -> handleToolsList(id, params);
             case "tools/discover" -> handleToolsDiscover(id, params);  // ✨ 能力发现
             case "server/discover" -> handleServerDiscover(id, params);  // ✨ Server 发现
-            case "tasks/create" -> handleTaskCreate(id, params);  // ✨ 长任务
+            case "tasks/create" -> handleTaskCreate(id, params, tokenScopes);  // ✨ 长任务
             case "ping" -> successResponse(id, Map.of("status", "ok"));
             default -> errorResponse(id, -32601, "Method not found: " + method);
         };
@@ -262,7 +275,7 @@ public class McpStatelessEndpoint {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> handleToolCall(Object id, Map<String, Object> params) {
+    private Map<String, Object> handleToolCall(Object id, Map<String, Object> params, Set<String> tokenScopes) {
         if (params == null) {
             return errorResponse(id, -32602, "Invalid params");
         }
@@ -272,6 +285,24 @@ public class McpStatelessEndpoint {
 
         if (toolName == null) {
             return errorResponse(id, -32602, "Missing tool name");
+        }
+
+        // V1.19: 工具级 Scope 授权（Token Scope → Tool ACL）
+        // tokenScopes != null 表示调用方携带 Bearer 令牌上下文 → 强制执行；否则跳过（向后兼容）
+        ToolScopePolicy policy = toolManager.getScopePolicy();
+        if (tokenScopes != null && policy != null && policy.isEnabled()) {
+            ToolDefinition def = registry.getDefinition(toolName);
+            if (def != null) {
+                ToolScopePolicy.ScopeDecision decision = policy.authorize(tokenScopes, def);
+                if (!decision.allowed()) {
+                    log.warn("⛔ 工具级 scope 拒绝(stateless): tool={} required={} token={}",
+                            toolName, decision.requiredScopes(), decision.tokenScopes());
+                    Map<String, Object> errorData = new LinkedHashMap<>();
+                    errorData.put("requiredScopes", decision.requiredScopes());
+                    errorData.put("tokenScopes", decision.tokenScopes());
+                    return insufficientScopeError(id, toolName, errorData);
+                }
+            }
         }
 
         // 使用 toolManager 执行
@@ -298,6 +329,24 @@ public class McpStatelessEndpoint {
         }
 
         return successResponse(id, toolResult);
+    }
+
+    /**
+     * V1.19: RFC 6750 语义的 insufficient_scope 错误响应（JSON-RPC 封装，MCP 自定义错误码 -32090）。
+     * HTTP 层（Controller）会叠加 403 状态码与 WWW-Authenticate 头。
+     */
+    public static Map<String, Object> insufficientScopeError(Object id, String toolName, Map<String, Object> data) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("code", -32090);
+        error.put("message", "insufficient_scope: token lacks required scope for tool " + toolName);
+        if (data != null) {
+            error.put("data", data);
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("jsonrpc", "2.0");
+        response.put("id", id);
+        response.put("error", error);
+        return response;
     }
 
     /** V1.7: 获取网关限流路由表（管理端点用） */
@@ -427,9 +476,10 @@ public class McpStatelessEndpoint {
     /**
      * ✨ 长任务创建 — tasks/create
      * MCP 2026-07-28 支持异步长任务，返回 taskId 供轮询。
+     * V1.19：同步做工具级 scope 预检，避免无权限任务白白排队。
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> handleTaskCreate(Object id, Map<String, Object> params) {
+    private Map<String, Object> handleTaskCreate(Object id, Map<String, Object> params, Set<String> tokenScopes) {
         if (params == null || !params.containsKey("tool")) {
             return errorResponse(id, -32602, "Missing 'tool' parameter");
         }
@@ -439,6 +489,22 @@ public class McpStatelessEndpoint {
         long timeoutMs = params.containsKey("timeoutMs")
                 ? ((Number) params.get("timeoutMs")).longValue()
                 : 300_000L;
+
+        // V1.19: tasks/create 同样执行 scope 预检（fail-fast，避免任务入队后才发现无权限）
+        ToolScopePolicy policy = toolManager.getScopePolicy();
+        if (tokenScopes != null && policy != null && policy.isEnabled()) {
+            ToolDefinition def = registry.getDefinition(toolName);
+            if (def != null) {
+                ToolScopePolicy.ScopeDecision decision = policy.authorize(tokenScopes, def);
+                if (!decision.allowed()) {
+                    log.warn("⛔ 工具级 scope 拒绝(tasks/create): tool={} required={}", toolName, decision.requiredScopes());
+                    Map<String, Object> errorData = new LinkedHashMap<>();
+                    errorData.put("requiredScopes", decision.requiredScopes());
+                    errorData.put("tokenScopes", decision.tokenScopes());
+                    return insufficientScopeError(id, toolName, errorData);
+                }
+            }
+        }
 
         String taskId = UUID.randomUUID().toString();
         Map<String, Object> result = new LinkedHashMap<>();
@@ -480,6 +546,14 @@ public class McpStatelessEndpoint {
                 "perSecond", def.getRateLimitPerSecond(),
                 "timeoutMs", def.getTimeoutMs()
         ));
+        // ✨ V1.19 工具级 scope 声明：客户端可在令牌签发时按需申请
+        ToolScopePolicy policy = toolManager.getScopePolicy();
+        if (policy != null && policy.isEnabled()) {
+            discovery.put("security", Map.of(
+                    "requiredScopes", policy.resolveRequiredScopes(def),
+                    "scopeMatch", "exact|*|**"
+            ));
+        }
         // ✨ 调用示例（帮助 AI 客户端理解用法）
         discovery.put("examples", List.of(
                 Map.of(
@@ -527,6 +601,15 @@ public class McpStatelessEndpoint {
             inputSchema.put("type", "object");
         }
         mcpTool.put("inputSchema", inputSchema);
+
+        // ✨ V1.19 工具级 scope 声明（客户端可据此在 token 签发时申请正确 scope）
+        ToolScopePolicy policy = toolManager.getScopePolicy();
+        if (policy != null && policy.isEnabled()) {
+            Set<String> required = policy.resolveRequiredScopes(def);
+            if (!required.isEmpty()) {
+                mcpTool.put("requiredScopes", required);
+            }
+        }
 
         return mcpTool;
     }

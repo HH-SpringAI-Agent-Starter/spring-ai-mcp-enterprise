@@ -2,6 +2,8 @@ package com.mcp.enterprise.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.Map;
+
 /**
  * MCP Enterprise 配置属性
  * 
@@ -46,6 +48,8 @@ public class McpEnterpriseProperties {
         private boolean auditLogEnabled = true;
         private int auditLogMaxSize = 10000;
         private String defaultRoles = "user";
+        /** V1.19: 工具级 Scope 授权策略（Token Scope → Tool ACL） */
+        private Scope scope = new Scope();
         public boolean isApiKeyEnabled() { return apiKeyEnabled; }
         public void setApiKeyEnabled(boolean apiKeyEnabled) { this.apiKeyEnabled = apiKeyEnabled; }
         public boolean isRateLimitEnabled() { return rateLimitEnabled; }
@@ -56,6 +60,24 @@ public class McpEnterpriseProperties {
         public void setAuditLogMaxSize(int auditLogMaxSize) { this.auditLogMaxSize = auditLogMaxSize; }
         public String getDefaultRoles() { return defaultRoles; }
         public void setDefaultRoles(String defaultRoles) { this.defaultRoles = defaultRoles; }
+        public Scope getScope() { return scope; }
+        public void setScope(Scope scope) { this.scope = scope; }
+    }
+
+    // ===== V1.19: 工具级 Scope 授权（Token Scope → Tool ACL） =====
+    public static class Scope {
+        /** 总开关：false 恒放行（与引入前行为一致，向后兼容） */
+        private boolean enabled = false;
+        /** 工具名 → 所需 scope 模式（空格/逗号分隔，支持 * / ** 通配） */
+        private Map<String, String> toolOverrides = new java.util.LinkedHashMap<>();
+        /** 工具分类 → 所需 scope 模式（未显式声明时按分类兜底），如 finance → tools:finance:* */
+        private Map<String, String> categoryDefaults = new java.util.LinkedHashMap<>();
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public Map<String, String> getToolOverrides() { return toolOverrides; }
+        public void setToolOverrides(Map<String, String> toolOverrides) { this.toolOverrides = toolOverrides; }
+        public Map<String, String> getCategoryDefaults() { return categoryDefaults; }
+        public void setCategoryDefaults(Map<String, String> categoryDefaults) { this.categoryDefaults = categoryDefaults; }
     }
 
     public static class Monitor {

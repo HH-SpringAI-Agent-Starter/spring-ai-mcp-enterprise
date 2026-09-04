@@ -6,6 +6,7 @@ import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
 import com.mcp.enterprise.core.registry.ToolRegistry;
 import com.mcp.enterprise.core.security.McpOAuth2Manager;
 import com.mcp.enterprise.core.security.McpSecurityManager;
+import com.mcp.enterprise.core.security.ToolScopePolicy;
 import com.mcp.enterprise.core.tool.McpToolExecutor;
 import com.mcp.enterprise.core.tool.McpToolManager;
 import org.slf4j.Logger;
@@ -79,6 +80,31 @@ public class McpEnterpriseAutoConfiguration {
         return new McpToolManager(registry);
     }
 
+    // ===== V1.19: 工具级 Scope 授权策略（Token Scope → Tool ACL） =====
+    // 由 mcp.enterprise.security.scope.* 配置驱动；enabled=false 时恒放行（向后兼容）
+    @Bean
+    @ConditionalOnMissingBean
+    public ToolScopePolicy toolScopePolicy(McpEnterpriseProperties properties) {
+        McpEnterpriseProperties.Scope cfg = properties.getSecurity() != null
+                ? properties.getSecurity().getScope()
+                : new McpEnterpriseProperties.Scope();
+        ToolScopePolicy policy = new ToolScopePolicy(
+                cfg.isEnabled(),
+                cfg.getToolOverrides(),
+                cfg.getCategoryDefaults()
+        );
+        log.info("🎯 初始化 MCP Tool Scope Policy (enabled={}, toolOverrides={}, categoryDefaults={})",
+                cfg.isEnabled(), cfg.getToolOverrides().size(), cfg.getCategoryDefaults().size());
+        return policy;
+    }
+
+    /** 把 Scope 策略注入 ToolManager（invokeWithScope 强制执行点） */
+    @Bean
+    @ConditionalOnMissingBean
+    public ToolScopePolicyInjector toolScopePolicyInjector(McpToolManager toolManager, ToolScopePolicy policy) {
+        return new ToolScopePolicyInjector(toolManager, policy);
+    }
+
     /**
      * 自动发现并注册所有实现了 McpToolExecutor 接口的 Spring Bean
      *
@@ -131,6 +157,19 @@ public class McpEnterpriseAutoConfiguration {
             } else {
                 log.warn("⚠️ 未发现任何 MCP 工具执行器，请确保至少有一个 McpToolExecutor 实现");
             }
+        }
+    }
+
+    /**
+     * 内部类：把 Scope 策略注入 ToolManager
+     */
+    public static class ToolScopePolicyInjector {
+
+        private static final Logger log = LoggerFactory.getLogger(ToolScopePolicyInjector.class);
+
+        public ToolScopePolicyInjector(McpToolManager toolManager, ToolScopePolicy policy) {
+            toolManager.setScopePolicy(policy);
+            log.debug("🔗 已注入 Tool Scope Policy 到 ToolManager");
         }
     }
 }

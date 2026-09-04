@@ -1,17 +1,21 @@
 package com.mcp.enterprise.server.endpoint;
 
 import com.mcp.enterprise.core.endpoint.McpStatelessEndpoint;
+import com.mcp.enterprise.core.security.McpOAuth2Manager;
 import com.mcp.enterprise.monitor.McpMetricsCollector;
+import com.mcp.enterprise.server.security.McpBearerAuthFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -67,13 +71,39 @@ public class McpStatelessController {
      * 网关可仅凭标头进行速率限制/授权；后端执行传输验证，
      * 拒绝任何与请求体不符的标头（防止标头掩盖真实调用）。
      */
+    /**
+     * 兼容重载（V1.19 前签名）：无令牌上下文 → scope 不拦截；无 response → 不叠加 HTTP 状态。
+     */
+    public Map<String, Object> handleStatelessMessage(
+            Map<String, Object> message,
+            String traceId,
+            String apiKey,
+            String mcpMethod,
+            String mcpName) {
+        return handleStatelessMessage(message, traceId, apiKey, mcpMethod, mcpName, null, null, false);
+    }
+
     @PostMapping("/message")
     public Map<String, Object> handleStatelessMessage(
             @RequestBody Map<String, Object> message,
             @RequestHeader(value = "X-MCP-Trace-Id", required = false) String traceId,
             @RequestHeader(value = "X-API-Key", required = false) String apiKey,
             @RequestHeader(value = McpStatelessEndpoint.MCP_METHOD_HEADER, required = false) String mcpMethod,
-            @RequestHeader(value = McpStatelessEndpoint.MCP_NAME_HEADER, required = false) String mcpName) {
+            @RequestHeader(value = McpStatelessEndpoint.MCP_NAME_HEADER, required = false) String mcpName,
+            HttpServletRequest request, HttpServletResponse response) {
+        return handleStatelessMessage(message, traceId, apiKey, mcpMethod, mcpName, request, response, true);
+    }
+
+    /**
+     * 内部实现：scope 上下文仅当 {@code fromHttp} 时从 request attribute 提取（兼容旧调用方传 null）。
+     */
+    private Map<String, Object> handleStatelessMessage(
+            Map<String, Object> message,
+            String traceId,
+            String apiKey,
+            String mcpMethod,
+            String mcpName,
+            HttpServletRequest request, HttpServletResponse response, boolean fromHttp) {
 
         log.debug("MCP Stateless message: method={}, traceId={}, Mcp-Method={}, Mcp-Name={}",
                 message != null ? message.get("method") : null, traceId, mcpMethod, mcpName);
@@ -87,9 +117,13 @@ public class McpStatelessController {
         }
 
         long start = System.currentTimeMillis();
-        Map<String, Object> response = statelessEndpoint.handleStatelessMessage(message, traceId);
+        // V1.19: 携带令牌 scope 上下文（无 Bearer 令牌时返回 null → 不拦截，向后兼容）
+        Set<String> tokenScopes = fromHttp ? extractTokenScopes(request) : null;
+        Map<String, Object> mcpResponse = statelessEndpoint.handleStatelessMessage(message, traceId, tokenScopes);
+        // V1.19: insufficient_scope → HTTP 403 + WWW-Authenticate（RFC 6750 §3.1）
+        applyScopeStatus(mcpResponse, fromHttp ? response : null);
         recordGatewayMetric(mcpMethod, mcpName, System.currentTimeMillis() - start, true);
-        return response;
+        return mcpResponse;
     }
 
     /**
@@ -138,22 +172,70 @@ public class McpStatelessController {
     }
 
     /**
+     * 兼容重载（V1.19 前签名）：无令牌上下文 → scope 不拦截。
+     */
+    public Map<String, Object> callTool(Map<String, Object> params) {
+        return callTool(params, null, null);
+    }
+
+    /**
      * MCP tools/call 端点 (2026-07-28 无状态)
+     * V1.19: 按令牌 scope 做工具级授权，不足时返回 403 + RFC 6750 insufficient_scope
      */
     @PostMapping("/tools/call")
-    public Map<String, Object> callTool(@RequestBody Map<String, Object> params) {
+    public Map<String, Object> callTool(@RequestBody Map<String, Object> params,
+                                        HttpServletRequest request, HttpServletResponse response) {
         String toolName = params != null ? (String) params.get("name") : null;
         if (toolName == null) {
             return McpStatelessEndpoint.errorResponse("tool-call", -32602, "Missing tool name");
         }
 
+        Set<String> tokenScopes = extractTokenScopes(request);
         Map<String, Object> callMessage = Map.of(
                 "jsonrpc", "2.0",
                 "id", "tool-call-" + toolName,
                 "method", "tools/call",
                 "params", params
         );
-        return statelessEndpoint.handleStatelessMessage(callMessage, null);
+        Map<String, Object> mcpResponse = statelessEndpoint.handleStatelessMessage(callMessage, null, tokenScopes);
+        applyScopeStatus(mcpResponse, response);
+        return mcpResponse;
+    }
+
+    // ===== V1.19: 工具级 Scope 授权（Token Scope → Tool ACL） =====
+
+    /**
+     * 从请求属性提取令牌 scope 集合（Bearer 校验通过后由 {@link McpBearerAuthFilter} 写入）。
+     * 无令牌上下文返回 null → 调用方走旧版鉴权路径，scope 不拦截（向后兼容）。
+     */
+    private Set<String> extractTokenScopes(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        Object info = request.getAttribute(McpBearerAuthFilter.ATTR_TOKEN_INFO);
+        if (info instanceof McpOAuth2Manager.TokenInfo tokenInfo && tokenInfo.scopes() != null) {
+            return tokenInfo.scopes();
+        }
+        return null;
+    }
+
+    /**
+     * 若响应为 insufficient_scope（JSON-RPC 错误码 -32090），叠加 HTTP 403 与 WWW-Authenticate 头（RFC 6750 §3.1）。
+     */
+    private void applyScopeStatus(Map<String, Object> mcpResponse, HttpServletResponse response) {
+        if (mcpResponse == null || response == null) {
+            return;
+        }
+        Object error = mcpResponse.get("error");
+        if (error instanceof Map<?, ?> errMap) {
+            Object code = errMap.get("code");
+            if (code instanceof Number n && n.intValue() == -32090) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                response.setHeader("WWW-Authenticate",
+                        "Bearer realm=\"mcp-enterprise\", error=\"insufficient_scope\", " +
+                                "error_description=\"The request requires higher privileges than provided by the access token\"");
+            }
+        }
     }
 
     /**

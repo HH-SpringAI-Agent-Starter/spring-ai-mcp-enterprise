@@ -2,6 +2,7 @@ package com.mcp.enterprise.core.tool;
 
 import com.mcp.enterprise.core.model.ToolDefinition;
 import com.mcp.enterprise.core.registry.ToolRegistry;
+import com.mcp.enterprise.core.security.ToolScopePolicy;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +32,20 @@ public class McpToolManager {
     private final Map<String, AtomicLong> invokeCounts = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> invokeErrors = new ConcurrentHashMap<>();
 
+    /** V1.19: 工具级 Scope 授权策略（可选注入；null 或 disabled 时恒放行，向后兼容） */
+    private volatile ToolScopePolicy scopePolicy;
+
     public McpToolManager(ToolRegistry registry) {
         this.registry = registry;
+    }
+
+    /** V1.19: 注入工具级 Scope 授权策略（由自动配置装配，缺省不启用） */
+    public void setScopePolicy(ToolScopePolicy scopePolicy) {
+        this.scopePolicy = scopePolicy;
+    }
+
+    public ToolScopePolicy getScopePolicy() {
+        return scopePolicy;
     }
 
     // ===== 注册/注销 =====
@@ -103,6 +116,48 @@ public class McpToolManager {
                         "error", error.getMessage(),
                         "tool", name
                 )));
+    }
+
+    // ===== V1.19: Scope 感知调用（Token Scope → Tool ACL） =====
+
+    /**
+     * Scope 感知的工具调用：在真正执行前先做工具级授权（RFC 6750 insufficient_scope）。
+     *
+     * <p>语义：</p>
+     * <ul>
+     *   <li>策略未启用（scopePolicy == null 或 disabled）→ 行为与 {@link #invoke} 完全一致</li>
+     *   <li>启用且令牌无 scope 上下文（tokenScopes == null）→ 视为调用方走旧版鉴权路径，不做 scope 拦截（向后兼容）</li>
+     *   <li>启用、令牌携带 scope、工具声明了所需 scope → 命中放行，未命中返回 HTTP 403 语义的 insufficient_scope 结果
+     *       （{@code httpStatus=403}，由 Controller 层转成标准 RFC 6750 响应）</li>
+     * </ul>
+     *
+     * @param name         工具名
+     * @param params       调用参数
+     * @param tokenScopes  令牌携带的 scope 集合（无令牌上下文传 null）
+     */
+    public Mono<Map<String, Object>> invokeWithScope(String name, Map<String, Object> params, Set<String> tokenScopes) {
+        ToolScopePolicy policy = scopePolicy;
+        if (policy == null || !policy.isEnabled() || tokenScopes == null) {
+            return invoke(name, params);
+        }
+        McpToolExecutor executor = executors.get(name);
+        if (executor == null) {
+            return Mono.just(Map.of("success", false, "error", "Tool not found: " + name));
+        }
+        ToolScopePolicy.ScopeDecision decision = policy.authorize(tokenScopes, executor.getDefinition());
+        if (!decision.allowed()) {
+            log.warn("⛔ 工具级 scope 拒绝: tool={} required={} token={}",
+                    name, decision.requiredScopes(), decision.tokenScopes());
+            Map<String, Object> denied = new LinkedHashMap<>();
+            denied.put("success", false);
+            denied.put("error", "insufficient_scope");
+            denied.put("tool", name);
+            denied.put("requiredScopes", decision.requiredScopes());
+            denied.put("tokenScopes", decision.tokenScopes());
+            denied.put("httpStatus", 403);
+            return Mono.just(denied);
+        }
+        return invoke(name, params);
     }
 
     // ===== 查询 =====
