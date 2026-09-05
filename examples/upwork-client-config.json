@@ -1,0 +1,28 @@
+{
+  "_comment": "spring-ai-mcp-enterprise × Upwork 官方 MCP 双通道配置示例（V1.20）。合并进你自己的 .mcp.json / claude_desktop_config.json / cursor mcp 配置。Upwork 官方端点与 scopes 以官方文档为准，接入前先申请 Upwork API OAuth 2.1 凭据。",
+  "mcpServers": {
+    "mcp-enterprise": {
+      "description": "本项目：企业内部工具网关（API Key / OAuth2 / scope ACL / 限流 / 审计）",
+      "type": "http",
+      "url": "http://localhost:8081/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      }
+    },
+    "upwork": {
+      "description": "Upwork 官方 MCP Server：扫岗 / proposal 草稿 / 合同与消息（OAuth 2.1，draft-confirm）",
+      "type": "http",
+      "url": "https://developer-mcp.upwork.com/mcp",
+      "oauth": {
+        "clientId": "${UPWORK_CLIENT_ID}",
+        "clientSecret": "${UPWORK_CLIENT_SECRET}",
+        "scopes": ["jobs_read", "proposals_write", "contracts_read"]
+      }
+    }
+  },
+  "usagePrompts": [
+    "Show me this week's Upwork jobs matching: Java, Spring Boot, MCP, Spring AI (budget filter $4,000-$9,000/month)",
+    "Draft a proposal for the top match using my open-source MCP enterprise server as evidence (github.com/HH-SpringAI-Agent-Starter/spring-ai-mcp-enterprise)",
+    "Summarize new client messages and flag which ones need follow-up today"
+  ]
+}

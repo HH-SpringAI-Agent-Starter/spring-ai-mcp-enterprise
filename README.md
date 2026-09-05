@@ -265,6 +265,8 @@ curl -s -i -X POST http://localhost:8081/api/mcp/tools/db_query/invoke \
 
 > 📖 完整指南见 [docs/scope-authorization-guide.md](docs/scope-authorization-guide.md)，设计解读见 [docs/blog-java-mcp-scope-acl-2026-09-04.md](docs/blog-java-mcp-scope-acl-2026-09-04.md)
 
+> 💰 变现通道：[docs/upwork-mcp-guide.md](docs/upwork-mcp-guide.md)（Upwork 官方 MCP Server 接入）· 安全审查对照表：[docs/security-review-checklist.md](docs/security-review-checklist.md) · JD 话术包：[docs/pitch-30s-2026-09-05.md](docs/pitch-30s-2026-09-05.md)
+
 ---
 
 ## 🚀 快速开始
@@ -493,6 +495,7 @@ docker compose --profile full up -d
 | **V1.17** | **A2A 网关 OAuth2 Bearer 强制鉴权（RFC 6750，A2aJwtTokenValidator 与 mcp-auth 同密钥派生）+ 三模式 authMode 推导 + 市场雷达 09-02（Photon-Citi/SumoLogic/TalentAlly/AAIF）** | ✅ 已完成 |
 | **V1.18** | **Signed Agent Card（A2A v1.2 供应链安全基线：JWS HS256 签名 + 规范化 JSON + X-Agent-Card-Signature 头 + 自验证端点 + 9 新测试）+ 市场雷达 09-03（A2A v1.0 GA/Greelow $6-9K·月/Sumsub/Upwork MCP Server）** | ✅ 已完成 |
 | **V1.19** | **工具级 Scope 权限映射（Token Scope → Tool ACL：ScopeMatcher 通配 + ToolScopePolicy 决策 + invokeWithScope fail-closed + REST 403 RFC 6750 insufficient_scope + Streamable HTTP -32090 + tasks/create 预检 + tools/list 暴露 requiredScopes + scope/policy 观察端点，26 新测试）+ 市场雷达 09-04（Commerzbank MCP 网关岗/NTT DATA Empiric 价目）** | ✅ 已完成 |
+| **V1.20** | **开发变现通道（Upwork 官方 MCP Server 接入指南 + 配置示例 / 安全审查对照表 / 三类 JD 30 秒话术包 / 掘金 CSDN 稿件）+ 市场雷达 09-05（Photon-Citi MCP 岗/沃尔玛中国 ¥30-55K/WF Next $7-12K/Upwork 官方 MCP 上线）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
