@@ -212,6 +212,7 @@ String result = client.execute("database_query", Map.of("sql", "SELECT * FROM us
 | **mcp-monitor** | 监控 + 审计 + 告警（Prometheus 集成） | 可选 |
 | **mcp-auth** | OAuth2/SSO/JWT 企业认证 | 可选 |
 | **mcp-tenant** | 多租户隔离：Row 级（TenantAwareJdbcTemplate）+ Schema 级（TenantSchemaDataSource 自动切换） | 可选 |
+| **mcp-registry** | Skill Registry 技能注册表（V1.21）：版本管理/显式激活/故障回滚/灰度路由 | 可选（默认启用） |
 | **mcp-integrations/mcp-alibaba** | Spring AI Alibaba DashScope 集成 | 可选 |
 | **mcp-examples/mcp-client-spring-ai** | Spring AI Client 调用示例 | 示例 |
 
@@ -374,7 +375,18 @@ A: 最小配置 256MB 内存 + 1 核 CPU 即可运行。推荐生产配置 1GB �
 
 ## 🗺️ 路线图
 
-### V0.x（当前 — 验证核心）
+### V1.x（当前 — 平台治理）
+- [x] **V1.21 Skill Registry 技能注册表（mcp-registry：注册/版本管理/激活/故障回滚/灰度路由 + 管理/发现 REST API）+ proposal 模板库 + 市场雷达 09-06 ← 当前**
+- [x] **V1.20 开发变现通道（Upwork 官方 MCP Server 接入指南/安全审查对照表/JD 话术包）**
+- [x] **V1.19 工具级 Scope 权限映射（Token Scope → Tool ACL）**
+- [x] **V1.18 A2A Signed Agent Card（JWS 签名 Agent Card）**
+- [x] **V1.17 A2A OAuth2 Bearer 强制鉴权（RFC 6750）**
+- [x] **V1.16 A2A SSE 流式 + Agent Card securitySchemes**
+- [x] **V1.15 MCP + A2A 双协议网关（mcp-a2a）**
+- [x] **V1.14 租户生命周期管理 REST API**
+- [x] **V1.13 实例级多租户（每租户独立 DataSource/连接池）**
+
+### V0.x（验证核心）
 - [x] V0.1 核心框架：工具注册、SPI 扩展、SSE 端点
 - [x] V0.2 安全层：RBAC、SQL 注入防护、IP 白名单
 - [x] V0.3 三工具模块：数据库、搜索、系统监控

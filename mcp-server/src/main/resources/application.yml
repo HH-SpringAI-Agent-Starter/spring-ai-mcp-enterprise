@@ -32,6 +32,12 @@ mcp:
     registry:
       auto-scan-enabled: true
       scan-packages: com.mcp.tool
+      # V1.21: Skill Registry（技能注册表 + 语义化版本治理 + 灰度路由 + 故障回滚，默认启用）
+      # 端点: /api/admin/skills (管理) + /api/mcp/skills (客户端发现)
+      skill:
+        enabled: ${MCP_SKILL_REGISTRY_ENABLED:true}
+        # 每个 Skill 保留的历史版本数（超出自动裁剪最旧版本）
+        max-versions-per-skill: 20
     # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）
     # V1.16: 新增 SSE 流式 (message/stream + task/resubscribe) + securitySchemes 声明（mcp-auth 打通第一步）
     a2a:

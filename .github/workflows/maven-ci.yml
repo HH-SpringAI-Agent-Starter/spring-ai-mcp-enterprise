@@ -70,6 +70,7 @@ jobs:
           mcp-monitor/target/*.jar
           mcp-auth/target/*.jar
           mcp-tenant/target/*.jar
+          mcp-registry/target/*.jar
           mcp-integrations/mcp-alibaba/target/*.jar
           mcp-examples/mcp-client-spring-ai/target/*.jar
         retention-days: 7
@@ -221,6 +222,7 @@ jobs:
           mcp-monitor/target/*.jar
           mcp-auth/target/*.jar
           mcp-tenant/target/*.jar
+          mcp-registry/target/*.jar
           mcp-integrations/mcp-alibaba/target/*.jar
           mcp-examples/mcp-client-spring-ai/target/*.jar
         draft: false

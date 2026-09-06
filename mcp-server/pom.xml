@@ -46,6 +46,12 @@
             <artifactId>mcp-a2a</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- V1.21: Skill Registry 技能注册表/版本治理/灰度/回滚（默认启用） -->
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-registry</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
