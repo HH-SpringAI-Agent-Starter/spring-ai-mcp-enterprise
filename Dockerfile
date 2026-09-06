@@ -6,7 +6,7 @@
 
 # ---- 阶段 1: 编译 ----
 # 使用 Java 17 构建镜像，与项目 java.version=17 严格一致
-FROM maven:3.9.9-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9.15-eclipse-temurin-26-alpine AS builder
 
 WORKDIR /build
 
