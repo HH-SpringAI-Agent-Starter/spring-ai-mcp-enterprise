@@ -38,6 +38,12 @@ mcp:
         enabled: ${MCP_SKILL_REGISTRY_ENABLED:true}
         # 每个 Skill 保留的历史版本数（超出自动裁剪最旧版本）
         max-versions-per-skill: 20
+        # V1.22: 持久化后端。memory（默认，纯内存，重启丢失，同 V1.21）| jdbc（重启/滚动发布后自动恢复）
+        store: ${MCP_SKILL_REGISTRY_STORE:memory}
+        # V1.22: store=jdbc 时的表名
+        table: ${MCP_SKILL_REGISTRY_TABLE:mcp_skill_registry}
+        # V1.22: 启动时自动 CREATE TABLE IF NOT EXISTS（用 Flyway/Liquibase 托管 schema 时置 false）
+        init-schema: ${MCP_SKILL_REGISTRY_INIT_SCHEMA:true}
     # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）
     # V1.16: 新增 SSE 流式 (message/stream + task/resubscribe) + securitySchemes 声明（mcp-auth 打通第一步）
     a2a:

@@ -36,6 +36,9 @@ public class SkillRegistry {
 
     private final int maxVersionsPerSkill;
 
+    /** V1.22 optional persistence backend (best-effort; in-memory when not persistent). */
+    private final SkillRegistryStore store;
+
     /** skill name -&gt; currently active spec. */
     private final Map<String, SkillSpec> activeVersions = new ConcurrentHashMap<>();
 
@@ -46,7 +49,20 @@ public class SkillRegistry {
     private final Map<String, Map<String, Integer>> grayWeights = new ConcurrentHashMap<>();
 
     public SkillRegistry(SkillRegistryProperties properties) {
+        this(properties, new InMemorySkillRegistryStore());
+    }
+
+    /**
+     * V1.22 constructor with an explicit persistence store. Passing an
+     * {@link InMemorySkillRegistryStore} (or {@code null}) keeps the V1.21
+     * zero-dependency, in-process behaviour.
+     *
+     * @param properties registry configuration (version history depth)
+     * @param store      persistence backend, {@code null} means in-memory only
+     */
+    public SkillRegistry(SkillRegistryProperties properties, SkillRegistryStore store) {
         this.maxVersionsPerSkill = Math.max(1, properties.getMaxVersionsPerSkill());
+        this.store = store == null ? new InMemorySkillRegistryStore() : store;
     }
 
     /**
@@ -82,6 +98,11 @@ public class SkillRegistry {
         trimHistory(name, versions);
         activeVersions.put(name, spec);
         grayWeights.remove(name);
+        persist("register", () -> {
+            store.upsert(spec);
+            store.setActive(name, spec.getVersion());
+            store.clearGray(name);
+        });
         log.info("🛠️ [V1.21] Skill registered & activated: {}@{}{}", name, spec.getVersion(),
                 spec.getCategory() == null ? "" : " (category=" + spec.getCategory() + ")");
         return spec;
@@ -133,6 +154,10 @@ public class SkillRegistry {
         target.setUpdatedAt(System.currentTimeMillis());
         activeVersions.put(name, target);
         grayWeights.remove(name);
+        persist("activate", () -> {
+            store.setActive(name, version);
+            store.clearGray(name);
+        });
         log.info("🔄 [V1.21] Skill activated: {}@{}", name, version);
         return target;
     }
@@ -166,6 +191,10 @@ public class SkillRegistry {
         previous.setUpdatedAt(System.currentTimeMillis());
         activeVersions.put(name, previous);
         grayWeights.remove(name);
+        persist("rollback", () -> {
+            store.setActive(name, previous.getVersion());
+            store.clearGray(name);
+        });
         log.info("↩️ [V1.21] Skill rolled back: {}: {}@{} -&gt; {}@{}", name,
                 current.getVersion(), current.getDescription(),
                 previous.getVersion(), previous.getDescription());
@@ -185,6 +214,7 @@ public class SkillRegistry {
         }
         findVersion(name, version);
         grayWeights.computeIfAbsent(name, k -> new LinkedHashMap<>()).put(version, weight);
+        persist("gray", () -> store.setGrayWeight(name, version, weight));
         log.info("🎚️ [V1.21] Skill gray routing: {}@{} weight={}%", name, version, weight);
     }
 
@@ -230,7 +260,67 @@ public class SkillRegistry {
         versionHistory.remove(name);
         activeVersions.remove(name);
         grayWeights.remove(name);
+        persist("remove", () -> store.removeSkill(name));
         log.info("🗑️ [V1.21] Skill removed: {}", name);
+    }
+
+    /**
+     * V1.22 warm start: reload all persisted skills, their active version and
+     * gray weights from the backing store. Safe to call at startup; it is a
+     * no-op for a non-persistent (in-memory) store. Any store failure is logged
+     * and ignored so the application still boots with an empty registry.
+     */
+    public synchronized void reload() {
+        if (store == null || !store.isPersistent()) {
+            return;
+        }
+        try {
+            Map<String, String> actives = store.loadActiveVersions();
+            List<SkillSpec> all = store.loadVersions();
+            Map<String, List<SkillSpec>> byName = new LinkedHashMap<>();
+            for (SkillSpec spec : all) {
+                byName.computeIfAbsent(spec.getName(), k -> new ArrayList<>()).add(spec);
+            }
+            versionHistory.clear();
+            activeVersions.clear();
+            grayWeights.clear();
+            for (Map.Entry<String, List<SkillSpec>> entry : byName.entrySet()) {
+                String name = entry.getKey();
+                List<SkillSpec> versions = entry.getValue();
+                // newest first, mirroring the in-memory registration order
+                versions.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+                versionHistory.put(name, new ArrayList<>(versions));
+                String activeVersion = actives.get(name);
+                SkillSpec active = null;
+                for (SkillSpec v : versions) {
+                    if (v.getVersion().equals(activeVersion)) {
+                        active = v;
+                        break;
+                    }
+                }
+                if (active == null) {
+                    active = versions.get(0);
+                }
+                active.setStatus(SkillStatus.ACTIVE);
+                activeVersions.put(name, active);
+            }
+            store.loadGrayWeights().forEach((name, weights) -> {
+                if (versionHistory.containsKey(name) && weights != null && !weights.isEmpty()) {
+                    grayWeights.put(name, new LinkedHashMap<>(weights));
+                }
+            });
+            log.info("♻️ [V1.22] Skill Registry reloaded from store: {} skill(s), {} version(s)",
+                    activeVersions.size(), all.size());
+        } catch (RuntimeException e) {
+            log.warn("⚠️ [V1.22] Skill Registry reload failed, starting empty: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Whether a persistent backend is configured (V1.22).
+     */
+    public boolean isPersistent() {
+        return store != null && store.isPersistent();
     }
 
     /**
@@ -241,6 +331,22 @@ public class SkillRegistry {
     }
 
     // ===== helpers =====
+
+    /**
+     * Best-effort persistence: the in-memory change has already succeeded, so a
+     * failing store must never break governance. Failures are logged as warnings
+     * (availability over durability).
+     */
+    private void persist(String action, Runnable mutation) {
+        if (store == null || !store.isPersistent()) {
+            return;
+        }
+        try {
+            mutation.run();
+        } catch (RuntimeException e) {
+            log.warn("⚠️ [V1.22] Skill Registry persistence failed ({}): {}", action, e.getMessage());
+        }
+    }
 
     private void trimHistory(String name, List<SkillSpec> versions) {
         while (versions.size() > maxVersionsPerSkill) {
