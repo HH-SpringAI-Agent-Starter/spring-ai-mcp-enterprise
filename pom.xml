@@ -58,6 +58,8 @@
         <module>mcp-integrations/mcp-alibaba</module>
         <!-- V1.15: A2A (Agent2Agent) 双协议网关：MCP 工具 → A2A Agent Card/Skill -->
         <module>mcp-integrations/mcp-a2a</module>
+        <!-- V1.23: Spring AI Tool Bridge - @Tool / ToolCallback 自动注册为企业 MCP 工具（RBAC/限流/审计/Scope） -->
+        <module>mcp-integrations/mcp-springai-tools</module>
         <module>mcp-examples/mcp-client-spring-ai</module>
     </modules>
 
