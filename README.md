@@ -366,6 +366,7 @@ docker compose --profile full up -d
 | **`mcp-registry`** | 🧩 **Skill Registry 技能注册表（V1.21 → V1.22）**：Skill/Spec 注册（注册即激活）+ 语义化版本管理（历史快照/裁剪）+ 显式激活 + **故障回滚（一键退回上一已部署版本）** + **灰度路由（权重制 0-100，未分配权重自动回退 ACTIVE）** + **V1.22 持久化（JDBC，opt-in：`store=memory|jdbc`，重启/滚动发布后版本、ACTIVE、灰度权重自动恢复；`SkillRegistryStore` SPI + `JdbcSkillRegistryStore` 单表方言无关 + best-effort 落库 + `reload()` 启动恢复）**，管理 REST API（/api/admin/skills）+ 客户端发现端点（/api/mcp/skills），21 测试全绿，命中沃尔玛/禾蛙 JD 的 Skill Registry 要求 |
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
 | **`mcp-integrations/mcp-a2a`** | 🌐 **A2A 双协议网关（V1.15）**：MCP 工具 → A2A Agent Card/Skill，JSON-RPC 分派（message/send、task/send/get/cancel），任意 A2A Agent 可直接调用企业 MCP 工具 |
+| **`mcp-springai-tools`** | 🎯 **Spring AI 工具桥接（V1.23）**：@Tool / ToolCallback / ToolCallbackProvider 三类工具源自动注册为企业 MCP 工具（自动继承 RBAC / 限流 / 审计 / 工具级 Scope / 健康检查），业务代码零改动，15 测试尽绿 |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
 ---
@@ -499,6 +500,7 @@ docker compose --profile full up -d
 | **V1.20** | **开发变现通道（Upwork 官方 MCP Server 接入指南 + 配置示例 / 安全审查对照表 / 三类 JD 30 秒话术包 / 掘金 CSDN 稿件）+ 市场雷达 09-05（Photon-Citi MCP 岗/沃尔玛中国 ¥30-55K/WF Next $7-12K/Upwork 官方 MCP 上线）** | ✅ 已完成 |
 | **V1.21** | **Skill Registry 技能注册表（mcp-registry：Skill/Spec 注册 + 语义化版本管理 + 显式激活 + 故障回滚 + 灰度路由 + 管理/发现 REST API，12 测试全绿）+ 使用指南 + proposal 模板库 5 份 + 掘金 CSDN 稿件 + 市场雷达 09-06（禾蛙 ¥80-120万 MCP 平台岗/Anthropic ×3 岗 $300-485K/Cognizant 截止 09-09）** | ✅ 已完成 |
 | **V1.22** | **Skill Registry 持久化（JDBC，opt-in：`SkillRegistryStore` SPI + `JdbcSkillRegistryStore` 单表方言无关 + upsert 保留 active + best-effort 落库 + `reload()` 启动恢复；9 新测试/H2，模块 21 全绿）+ 持久化指南 + 掘金 CSDN 稿件 + 市场雷达 09-11（花旗 Java+MCP 岗/SumoLogic $207-243K Java MCP/PTC AI Control Plane $135-155K/Upwork Skills Platform Java 单）** | ✅ 已完成 |
+| **V1.23** | **Spring AI 工具桥接（mcp-integrations/mcp-springai-tools）：@Tool / ToolCallback / ToolCallbackProvider 自动注册为企业 MCP 工具（RBAC/限流/审计/Scope 自动生效）+ 集成指南 + 掘金CSDN稿 + 市场雷达 09-12（沃尔玛 ¥30-55K MCP 网关岗/Sumo Logic MCP 平台岗/OneSeven $4-5K月/Snowflake 收购 Natoma/火山引擎 ¥37.7万 AI Coding 大单）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
