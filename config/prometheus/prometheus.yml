@@ -3,10 +3,14 @@
 # V1.7: 指标路径指向 mcp-monitor 自建 Prometheus 端点
 #   /api/monitor/metrics/prometheus（OpenMetrics 文本格式）
 # 无需额外依赖 micrometer-registry-prometheus
+# V1.24: 加载 alerts.yml 告警规则（工具错误率/延迟/网关/存活/流量骤降）
 # ===========================================
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
 
 scrape_configs:
   - job_name: "mcp-enterprise-server"

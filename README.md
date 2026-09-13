@@ -360,7 +360,7 @@ docker compose --profile full up -d
 | `mcp-tools/tool-system` | 系统信息工具（JVM/OS/GC） |
 | `mcp-tools/tool-http` | **通用 HTTP 调用工具**（域名白名单防 SSRF，对接内部 REST API） |
 | `mcp-tools/tool-finance` | **金融场景模板**：财务指标计算（CAGR/ROE/PEG/复利/定投/利润率）+ 合规日历（财报披露窗口）+ 风险评分（五维加权），面向研报助手、投顾/风控机器人 |
-| `mcp-monitor` | Prometheus + Actuator 监控 |
+| `mcp-monitor` | 📊 **监控/可观测（V1.24）**：指标聚合 + Prometheus 导出 + 审计 + 告警 + **内置告警规则（`config/prometheus/alerts.yml`）+ Grafana 自动 Provisioning 看板（`config/grafana/`，`docker compose --profile monitoring` 即用）** |
 | **`mcp-auth`** | 🔐 **企业认证层**：OAuth2/SSO + JWT + API Key + **Client Credentials（机器对机器）**（新增！） |
 | **`mcp-tenant`** | 🏢 **多租户三档隔离（V1.11 Row + V1.12 Schema + V1.13 Instance）+ V1.14 生命周期管理**：Row 模式（TenantContext + TenantAwareJdbcTemplate fail-closed）+ Schema 模式（TenantSchemaDataSource 自动切换 schema/provision/方言适配）+ Instance 模式（TenantInstanceRegistry 每租户独立 DataSource/连接池、运行时开通/停用）+ **生命周期 REST API（/api/admin/tenants：开通/替换/挂起/恢复/销毁 无需重启）**，X-Tenant-Id 头注入，三模式配置互斥 fail-fast，防跨租户越权 |
 | **`mcp-registry`** | 🧩 **Skill Registry 技能注册表（V1.21 → V1.22）**：Skill/Spec 注册（注册即激活）+ 语义化版本管理（历史快照/裁剪）+ 显式激活 + **故障回滚（一键退回上一已部署版本）** + **灰度路由（权重制 0-100，未分配权重自动回退 ACTIVE）** + **V1.22 持久化（JDBC，opt-in：`store=memory|jdbc`，重启/滚动发布后版本、ACTIVE、灰度权重自动恢复；`SkillRegistryStore` SPI + `JdbcSkillRegistryStore` 单表方言无关 + best-effort 落库 + `reload()` 启动恢复）**，管理 REST API（/api/admin/skills）+ 客户端发现端点（/api/mcp/skills），21 测试全绿，命中沃尔玛/禾蛙 JD 的 Skill Registry 要求 |
@@ -501,6 +501,7 @@ docker compose --profile full up -d
 | **V1.21** | **Skill Registry 技能注册表（mcp-registry：Skill/Spec 注册 + 语义化版本管理 + 显式激活 + 故障回滚 + 灰度路由 + 管理/发现 REST API，12 测试全绿）+ 使用指南 + proposal 模板库 5 份 + 掘金 CSDN 稿件 + 市场雷达 09-06（禾蛙 ¥80-120万 MCP 平台岗/Anthropic ×3 岗 $300-485K/Cognizant 截止 09-09）** | ✅ 已完成 |
 | **V1.22** | **Skill Registry 持久化（JDBC，opt-in：`SkillRegistryStore` SPI + `JdbcSkillRegistryStore` 单表方言无关 + upsert 保留 active + best-effort 落库 + `reload()` 启动恢复；9 新测试/H2，模块 21 全绿）+ 持久化指南 + 掘金 CSDN 稿件 + 市场雷达 09-11（花旗 Java+MCP 岗/SumoLogic $207-243K Java MCP/PTC AI Control Plane $135-155K/Upwork Skills Platform Java 单）** | ✅ 已完成 |
 | **V1.23** | **Spring AI 工具桥接（mcp-integrations/mcp-springai-tools）：@Tool / ToolCallback / ToolCallbackProvider 自动注册为企业 MCP 工具（RBAC/限流/审计/Scope 自动生效）+ 集成指南 + 掘金CSDN稿 + 市场雷达 09-12（沃尔玛 ¥30-55K MCP 网关岗/Sumo Logic MCP 平台岗/OneSeven $4-5K月/Snowflake 收购 Natoma/火山引擎 ¥37.7万 AI Coding 大单）** | ✅ 已完成 |
+| **V1.24** | **可观测性治理开箱即用：内置 Prometheus 告警规则（工具/网关错误率与延迟/存活/流量骤降，9 条）+ Grafana 自动 Provisioning 看板（11 面板总览，docker compose --profile monitoring 即用）+ 可观测性指南（指标体系/企业接入/SLI-SLO/排查手册）+ 市场雷达 09-13（Caterpillar Java+Agent Lead 今日截止/Sumo Logic $207-243K/adidas MCP+Agentic Infra/外包公允价值 $2-12K月）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 

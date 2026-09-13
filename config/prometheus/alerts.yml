@@ -1,0 +1,128 @@
+# ===========================================
+# MCP Enterprise Server — Prometheus 告警规则（V1.24）
+# 与 McpMetricsCollector 导出的指标一一对应：
+#   mcp_tool_invocations_total / mcp_tool_errors_total / mcp_tool_latency_ms
+#   mcp_gateway_invocations_total / mcp_gateway_errors_total / mcp_gateway_latency_ms
+#   mcp_build_info / up
+# 加载方式：prometheus.yml 中 rule_files 引用本文件（docker-compose 已挂载）
+# ===========================================
+groups:
+  - name: mcp-enterprise-tools
+    rules:
+      # ---- 工具错误率告警 ----
+      # 5 分钟内工具调用错误率 > 20% → warning；持续 15 分钟 → critical
+      - alert: McpToolHighErrorRate
+        expr: |
+          rate(mcp_tool_errors_total[5m])
+          / clamp_min(rate(mcp_tool_invocations_total[5m]), 1e-9)
+          > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: mcp-tools
+        annotations:
+          summary: "MCP 工具错误率过高 ({{ $labels.tool }})"
+          description: "工具 {{ $labels.tool }} 最近 5 分钟错误率 {{ $value | humanizePercentage }}，超过 20% 阈值。"
+
+      - alert: McpToolCriticalErrorRate
+        expr: |
+          rate(mcp_tool_errors_total[5m])
+          / clamp_min(rate(mcp_tool_invocations_total[5m]), 1e-9)
+          > 0.5
+        for: 15m
+        labels:
+          severity: critical
+          component: mcp-tools
+        annotations:
+          summary: "MCP 工具错误率爆表 ({{ $labels.tool }})"
+          description: "工具 {{ $labels.tool }} 错误率 {{ $value | humanizePercentage }}，持续 15 分钟超过 50%，需要立即介入。"
+
+      # ---- 工具延迟告警 ----
+      # 平均延迟 > 3s → warning；> 8s → critical
+      - alert: McpToolLatencyHigh
+        expr: mcp_tool_latency_ms{tool!=""} > 3000
+        for: 10m
+        labels:
+          severity: warning
+          component: mcp-tools
+        annotations:
+          summary: "MCP 工具延迟过高 ({{ $labels.tool }})"
+          description: "工具 {{ $labels.tool }} 平均延迟 {{ $value }}ms，超过 3s 阈值。"
+
+      - alert: McpToolLatencyCritical
+        expr: mcp_tool_latency_ms{tool!=""} > 8000
+        for: 5m
+        labels:
+          severity: critical
+          component: mcp-tools
+        annotations:
+          summary: "MCP 工具延迟爆表 ({{ $labels.tool }})"
+          description: "工具 {{ $labels.tool }} 平均延迟 {{ $value }}ms，超过 8s 阈值，Agent 调用链路可能已超时。"
+
+  - name: mcp-enterprise-gateway
+    rules:
+      # ---- 网关错误率告警 ----
+      - alert: McpGatewayHighErrorRate
+        expr: |
+          rate(mcp_gateway_errors_total[5m])
+          / clamp_min(rate(mcp_gateway_invocations_total[5m]), 1e-9)
+          > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: mcp-gateway
+        annotations:
+          summary: "MCP 网关错误率过高 ({{ $labels.method }} {{ $labels.name }})"
+          description: "网关路由 {{ $labels.method }} {{ $labels.name }} 最近 5 分钟错误率 {{ $value | humanizePercentage }}，超过 20% 阈值。"
+
+      # ---- 网关延迟告警 ----
+      - alert: McpGatewayLatencyHigh
+        expr: mcp_gateway_latency_ms > 5000
+        for: 10m
+        labels:
+          severity: warning
+          component: mcp-gateway
+        annotations:
+          summary: "MCP 网关延迟过高"
+          description: "网关平均延迟 {{ $value }}ms，超过 5s 阈值。"
+
+  - name: mcp-enterprise-infra
+    rules:
+      # ---- 服务存活告警 ----
+      - alert: McpServerDown
+        expr: up{job="mcp-enterprise-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: mcp-server
+        annotations:
+          summary: "MCP Enterprise Server 不可达"
+          description: "Prometheus 已连续 2 分钟无法抓取 mcp-server 指标，服务可能已宕机。"
+
+      # ---- 实例重启告警 ----
+      - alert: McpServerRestarted
+        expr: changes(mcp_build_info[15m]) > 0
+        for: 1m
+        labels:
+          severity: info
+          component: mcp-server
+        annotations:
+          summary: "MCP Enterprise Server 发生重启"
+          description: "15 分钟内探测到构建信息变化，服务可能发生重启/发布。版本: {{ $labels.version }}"
+
+  - name: mcp-enterprise-usage
+    rules:
+      # ---- 流量骤降告警（Agent 突然停止调用常意味着客户端故障或路由变更）----
+      - alert: McpTrafficDrop
+        expr: |
+          sum(rate(mcp_tool_invocations_total[10m]))
+          /
+          clamp_min(sum(rate(mcp_tool_invocations_total[1h] offset 1h)), 1e-9)
+          < 0.1
+        for: 15m
+        labels:
+          severity: warning
+          component: mcp-usage
+        annotations:
+          summary: "MCP 工具调用量骤降"
+          description: "当前 10 分钟调用速率不足 1 小时前的 10%，检查客户端/Agent 是否异常。"

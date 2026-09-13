@@ -68,3 +68,9 @@ docker-data/
 # temp patch scripts
 _patch_*.py
 _*.log
+
+# ad-hoc dev scripts (never commit)
+_push_*.ps1
+_verify_*.ps1
+_commit_msg_*.txt
+_v1*_row.txt
