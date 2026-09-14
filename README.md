@@ -173,6 +173,33 @@ mvn clean install -Pfull
 
 > 📖 详细配置见 [docs/alibaba-integration-guide.md](docs/alibaba-integration-guide.md)
 
+### 🌐 MCP 联邦网关（V1.25）
+
+**一个入口，聚合公司里所有的 MCP Server。** `mcp-gateway` 把任意多个下游（部门服务、Python FastMCP、第三方 SaaS MCP、被收购的遗留系统）拉进同一治理平面：联邦工具按 `<prefix>__<tool>` 命名空间隔离，注册进 `McpToolManager` 后**自动继承 RBAC / RateLimit / 审计 / 工具级 Scope / 健康检查**——Agent 无需感知上游差异。
+
+- 零依赖 Streamable HTTP 客户端（JDK HttpClient，自动 initialize → initialized → method 握手，兼容单 JSON 与 SSE 响应，api-key Bearer 透传）；
+- 启动自动同步（`sync-on-startup`）；同步失败**保留已注册工具**（可用性优先）并标记 unhealthy；`enabled: false` 或 `DELETE /tools` 一键下线上游；
+- 管理 REST API：`GET /api/admin/gateway/upstreams` 状态、`POST /api/admin/gateway/sync` 全量刷新、`POST .../upstreams/{name}/sync` 单上游刷新、`DELETE .../upstreams/{name}/tools` 下线、`GET /api/admin/gateway/health` 聚合健康；
+- 自定义上游协议：实现 `McpUpstreamClientFactory` SPI 即可替换默认 Streamable HTTP 客户端。
+
+```yaml
+mcp:
+  enterprise:
+    gateway:
+      sync-on-startup: true
+      upstreams:
+        - name: hr                    # 工具前缀 = hr（hr__get_employee）
+          url: http://hr-mcp:8080/mcp
+          api-key: ${HR_MCP_API_KEY:}
+        - name: finance
+          url: http://finance-mcp:8080/mcp
+        - name: legacy
+          url: http://legacy:8080/mcp
+          enabled: false              # 被收购遗留系统，先禁掉
+```
+
+> 📖 详见 [docs/federation-gateway-guide.md](docs/federation-gateway-guide.md) ｜ 发布说明 [docs/V1.25-release-notes.md](docs/V1.25-release-notes.md)
+
 ### 🌐 MCP + A2A 双协议网关（V1.15 → V1.18）
 
 **Agent 天花板能力：一个网关同时讲 MCP 和 A2A 两种语言。** 2026-08-20 Google A2A 正式并入 Linux Foundation AAIF（与 MCP 同框架治理），「MCP（Agent→工具）+ A2A（Agent→Agent）」双层栈已成为企业参考架构——蚂蚁集团等 JD 已明确要求「MCP + A2A 研发架构」。
@@ -367,6 +394,7 @@ docker compose --profile full up -d
 | `mcp-integrations/mcp-alibaba` | Spring AI Alibaba 集成（可选） |
 | **`mcp-integrations/mcp-a2a`** | 🌐 **A2A 双协议网关（V1.15）**：MCP 工具 → A2A Agent Card/Skill，JSON-RPC 分派（message/send、task/send/get/cancel），任意 A2A Agent 可直接调用企业 MCP 工具 |
 | **`mcp-springai-tools`** | 🎯 **Spring AI 工具桥接（V1.23）**：@Tool / ToolCallback / ToolCallbackProvider 三类工具源自动注册为企业 MCP 工具（自动继承 RBAC / 限流 / 审计 / 工具级 Scope / 健康检查），业务代码零改动，15 测试尽绿 |
+| **`mcp-gateway`** | 🌐 **MCP 联邦网关（V1.25）**：聚合任意多个下游 MCP Server（Streamable HTTP / JSON-RPC，零依赖客户端，兼容单 JSON 与 SSE 响应）——联邦工具自动命名空间隔离（`<prefix>__<tool>`）+ 继承 RBAC/限流/审计/Scope + 启动自动同步 + 失败保留/禁用移除 + 管理 REST API（/api/admin/gateway/upstreams·sync·tools·health），22 测试全绿，命中 Sumo Logic「联邦式 MCP 托管」/MintMCP 网关赛道需求 |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
 ---
@@ -502,6 +530,7 @@ docker compose --profile full up -d
 | **V1.22** | **Skill Registry 持久化（JDBC，opt-in：`SkillRegistryStore` SPI + `JdbcSkillRegistryStore` 单表方言无关 + upsert 保留 active + best-effort 落库 + `reload()` 启动恢复；9 新测试/H2，模块 21 全绿）+ 持久化指南 + 掘金 CSDN 稿件 + 市场雷达 09-11（花旗 Java+MCP 岗/SumoLogic $207-243K Java MCP/PTC AI Control Plane $135-155K/Upwork Skills Platform Java 单）** | ✅ 已完成 |
 | **V1.23** | **Spring AI 工具桥接（mcp-integrations/mcp-springai-tools）：@Tool / ToolCallback / ToolCallbackProvider 自动注册为企业 MCP 工具（RBAC/限流/审计/Scope 自动生效）+ 集成指南 + 掘金CSDN稿 + 市场雷达 09-12（沃尔玛 ¥30-55K MCP 网关岗/Sumo Logic MCP 平台岗/OneSeven $4-5K月/Snowflake 收购 Natoma/火山引擎 ¥37.7万 AI Coding 大单）** | ✅ 已完成 |
 | **V1.24** | **可观测性治理开箱即用：内置 Prometheus 告警规则（工具/网关错误率与延迟/存活/流量骤降，9 条）+ Grafana 自动 Provisioning 看板（11 面板总览，docker compose --profile monitoring 即用）+ 可观测性指南（指标体系/企业接入/SLI-SLO/排查手册）+ 市场雷达 09-13（Caterpillar Java+Agent Lead 今日截止/Sumo Logic $207-243K/adidas MCP+Agentic Infra/外包公允价值 $2-12K月）** | ✅ 已完成 |
+| **V1.25** | **MCP 联邦网关（mcp-gateway）：聚合任意多个下游 MCP Server（Streamable HTTP/JSON-RPC 零依赖客户端，兼容 JSON+SSE 响应，initialize→initialized→method 握手序列，Bearer 透传）——联邦工具命名空间隔离（prefix__tool）并自动继承 RBAC/限流/审计/Scope/健康检查 + 启动自动同步 + 失败保留旧工具/禁用移除 + 管理 REST API（upstreams/sync/tools/health）+ 联邦网关指南 + 掘金CSDN稿 + 市场雷达 09-14（MintMCP 网关融资 50+客户/Sumo Logic 联邦式托管 $207-243K/OneSeven Java+Spring MCP $4-5K月/Cotality MCP Server $10.7-13.3K月）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
