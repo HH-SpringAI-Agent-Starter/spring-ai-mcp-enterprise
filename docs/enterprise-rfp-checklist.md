@@ -1,89 +1,134 @@
-# 企业采购对照表：MCP Server 框架 RFP 检查清单（V1.10）
+# MCP Enterprise Server — 企业 RFP/招标应答清单
 
-> 用途：投标 / 售前 / 面试话术。将项目 V1.0-V1.9 的已落地能力逐项映射到企业 RFP（需求建议书）的检查项，做到"打开文档即可对照打分"。
-> 生成日期：2026-08-24 | 对应代码版本：V1.9（稳定）
-
-## 使用方式
-
-1. 拿到企业 MCP/AI 集成 RFP 后，按本表 Section 逐项核对；
-2. 命中项 → 填写"我方证据"列（模块名 / 文档链接 / 已提交 commit）；
-3. 未命中项 → 标记为 V1.11+ 路线图缺口，并在报价中注明"定制开发"。
+> 本清单帮助企业采购团队评估 MCP Server 方案，也帮助开发者准备应答材料。
 
 ---
 
-## A. 身份与认证（Identity & Authentication）
+## ✅ 功能完整性检查表
 
-| # | RFP 检查项 | 企业典型表述 | 本项目落地 | 证据 |
-| --- | --- | --- | --- | --- |
-| A1 | 客户端凭证认证 | "支持 M2M 服务间调用，禁止长期密钥硬编码" | OAuth2 Client Credentials 签发短期 access_token | mcp-core `McpOAuth2Manager.issueClientCredentialsToken` |
-| A2 | Token 轮换 | "长期驻留 Agent 需可安全续期" | Refresh Token 轮换（RFC 9700 / OAuth2 Security BCP） | V1.9 `refreshClientCredentialsToken` |
-| A3 | 重用检测 / 泄露熔断 | "检测凭证泄露并快速失效" | 已轮换 refresh token 复用 → 判定泄露 → 家族吊销 | V1.9 重用检测 + 整族吊销 |
-| A4 | Token 吊销 | "支持主动吊销会话" | RFC 7009 `/oauth2/revoke`（access+refresh，恒 200 防探测） | V1.9 |
-| A5 | Token 内省 | "网关可验证任意 token 有效性" | RFC 7662 `/oauth2/introspect` | V1.8 |
-| A6 | 企业集中授权（EMA） | "统一由企业 IAM 授权，而非散落各系统" | EMA 流程：admin 端签发 client 凭证，集中管控 | V1.8 |
-| A7 | API Key 兼容 | "存量调用方平滑迁移" | X-API-Key 存量校验保留，Bearer 校验失败才 fail-closed | V1.9 平滑迁移设计 |
-| A8 | jti 防碰撞 | "token 全局唯一，防重放" | access_token 携带全局唯一 jti | V1.9 |
+### 核心协议支持
+- [ ] MCP 协议版本支持（2024-11-05 / 2025-03-26 / 2026-07-28）
+- [ ] JSON-RPC 2.0 消息格式
+- [ ] SSE (Server-Sent Events) 传输
+- [ ] Streamable HTTP 传输（无状态模式）
+- [ ] stdio 传输（本地模式）
+- [ ] 工具发现 (tools/list)
+- [ ] 工具调用 (tools/call)
+- [ ] 资源暴露 (resources)
+- [ ] Prompt 模板 (prompts)
 
-## B. 授权与隔离（Authorization & Isolation）
+### 安全与合规
+- [ ] API Key 认证
+- [ ] OAuth 2.1 Client Credentials
+- [ ] OAuth 2.1 Authorization Code
+- [ ] Bearer Token 认证
+- [ ] RBAC 角色权限控制
+- [ ] Scope 级别授权（工具级 ACL）
+- [ ] Rate Limiting（令牌桶/滑动窗口）
+- [ ] 审计日志（谁调了什么、什么参数、什么结果）
+- [ ] Refresh Token 轮换 + 重用检测
+- [ ] Token 吊销 (RFC 7009)
+- [ ] 令牌内省 (RFC 7662)
+- [ ] CORS 配置
+- [ ] SQL 注入防护
 
-| # | RFP 检查项 | 本项目落地 | 证据 |
-| --- | --- | --- | --- |
-| B1 | RBAC 角色权限 | mcp-core RBAC（角色-工具权限矩阵） | V1.0+ |
-| B2 | Scope 级二次鉴权 | `mcp.tokenInfo` 请求属性携带 scopes/roles，下游可做 scope 鉴权 | V1.9 Bearer 过滤器 |
-| B3 | 租户隔离 | （多租户为 V1.11+ 候选；当前单实例隔离可用） | 路线图 |
-| B4 | 工具级最小权限 | 按工具注册中心粒度授权 | mcp-tools 注册中心 |
+### 多租户
+- [ ] 租户隔离（Row-level Security）
+- [ ] 租户感知数据源
+- [ ] 租户级 API Key 管理
+- [ ] 租户级 Rate Limit
+- [ ] 租户级审计日志
 
-## C. 安全治理（Security Governance）
+### 集成能力
+- [ ] Spring AI Alibaba 集成（通义千问）
+- [ ] Spring AI 标准 ToolCallback 集成
+- [ ] A2A (Agent-to-Agent) 协议支持
+- [ ] Dify 工作流集成
+- [ ] Federation Gateway（多 MCP Server 聚合）
+- [ ] 自定义工具注册（热插拔）
 
-| # | RFP 检查项 | 本项目落地 | 证据 |
-| --- | --- | --- | --- |
-| C1 | 审计日志 | 全量调用审计（谁/何时/调了哪个工具/入参出参） | mcp-core AuditLogger |
-| C2 | 速率限制 | 按客户端/按操作 QPS 限流 + 运行期管理 | V1.7 限流路由表 |
-| C3 | 网关强制校验 | fail-closed Bearer 强制校验（非公开路径 401 + WWW-Authenticate） | V1.9 `McpBearerAuthFilter` |
-| C4 | 敏感数据 | refresh token 仅存 SHA-256 散列，库泄露不可逆 | V1.9 |
-| C5 | SSRF 防护 | tool-http 内置 SSRF 防护 | V1.1 |
+### 可观测性
+- [ ] Prometheus 指标暴露
+- [ ] Grafana 仪表盘
+- [ ] 健康检查端点 (Actuator)
+- [ ] 结构化日志
+- [ ] 分布式追踪（OpenTelemetry）
 
-## D. 协议与互操作（Protocol & Interop）
-
-| # | RFP 检查项 | 本项目落地 | 证据 |
-| --- | --- | --- | --- |
-| D1 | MCP 2026-07-28 规范适配 | tools/resources/prompts 三原语；Streamable HTTP | V0.11/V0.15/V1.5 |
-| D2 | Streamable HTTP 传输 | mcp-server REST/Streamable 端点 | V1.0+ |
-| D3 | 客户端生态 | 官方 SDK 兼容（Claude/Cursor/Desktop） | examples/client-* |
-| D4 | Spring AI Alibaba 兼容 | 用户技术栈 Spring AI Alibaba，DashScope 模型接入 | mcp-integrations/mcp-alibaba |
-
-## E. 可观测性与运维（Observability & Ops）
-
-| # | RFP 检查项 | 本项目落地 | 证据 |
-| --- | --- | --- | --- |
-| E1 | 健康检查 | `/api/mcp/health`（Bearer 过滤器自动放行） | V1.9 |
-| E2 | 指标导出 | Prometheus 指标（工具调用统计） | V0.9/V1.7 |
-| E3 | 容器化部署 | Dockerfile + docker-compose + k8s/ 清单 | 仓库根目录 |
-| E4 | CI/CD | GitHub Actions（JDK 17/21 矩阵，自动构建+测试+镜像推送） | .github/workflows/maven-ci.yml |
-| E5 | 监控面板 | mcp-monitor 模块 | mcp-monitor |
-
-## F. 交付与文档（Delivery & Docs）
-
-| # | RFP 检查项 | 本项目落地 | 证据 |
-| --- | --- | --- | --- |
-| F1 | 快速上手 | docs/quickstart.md | ✓ |
-| F2 | 架构说明 | docs/architecture.md | ✓ |
-| F3 | API 文档 | docs/api-docs.md + REST 端点 | ✓ |
-| F4 | 生产部署 | docs/production-deployment.md + operations.md | ✓ |
-| F5 | OAuth2 指南 | docs/oauth2-guide.md | ✓ |
-| F6 | 多语言客户端示例 | Java / Python / Node.js / curl | examples/ |
-
-## 差距清单（诚实标注，V1.11+ 候选）
-
-| 缺口 | 说明 | 计划 |
-| --- | --- | --- |
-| 多租户隔离 | SaaS 型多租户 MCP 需 tenant 维度隔离 | V1.11 候选 |
-| SOC2/HIPAA 合规脚手架 | 需合规报告模板 + 数据驻留开关 | V1.12 候选 |
-| HITL（人工审批） | 高风险工具调用需人工确认流 | V1.11 候选 |
-| 官方 Registry 收录 | agentmarketcap / mcp.so / smithery 提交 | 本周候选 |
+### 部署
+- [ ] Docker 镜像
+- [ ] Docker Compose 编排
+- [ ] Kubernetes Helm Chart
+- [ ] CI/CD Pipeline (GitHub Actions)
+- [ ] 多环境配置（dev/staging/prod）
 
 ---
 
-## 一句话投标话术
+## 🏗️ 架构评估问题（面试/评审用）
 
-> "我们不是又一个 MCP 连接器，而是 **Java 生态的企业级 MCP Server 框架**：OAuth2 全家桶（Client Credentials + Refresh Token 轮换 RFC 9700 + 重用检测 + 吊销 + 内省 + EMA 集中授权）、RBAC、全量审计、限流、网关 Bearer 强制校验、Prometheus 可观测——RFP 里安全治理类条目 90% 开箱即得，剩余 10% 按定制清单报价。"
+### 基础
+1. MCP 协议支持哪些传输方式？如何选择？
+2. 如何实现工具级别的访问控制？
+3. Rate Limit 策略有哪些？如何防止单个 Agent 耗尽配额？
+
+### 安全
+4. OAuth2 的 Refresh Token 如何防止重放攻击？
+5. 如何防止 MCP 工具被恶意 Agent 用作攻击跳板（Tool Poisoning）？
+6. 审计日志保留多久？如何满足 GDPR/SOC2 要求？
+
+### 扩展
+7. 如何实现多 MCP Server 聚合（Federation）？
+8. 多租户场景下如何保证数据隔离？
+9. 工具热更新如何实现零停机？
+
+### 生产
+10. 监控告警阈值如何设置？
+11. 故障恢复策略是什么？
+12. 如何评估 MCP Server 的性能瓶颈？
+
+---
+
+## 📊 竞品对比（供应商评估用）
+
+| 特性 | MCP Enterprise (本项目) | Python FastMCP | TypeScript SDK | Go MCP |
+|------|------------------------|----------------|----------------|--------|
+| 语言 | Java 17+ | Python | TypeScript | Go |
+| 框架 | Spring Boot 3.4 | FastAPI | Express | net/http |
+| OAuth2 | ✅ 完整 | ❌ 需自建 | ❌ 需自建 | ❌ 需自建 |
+| RBAC | ✅ 内置 | ❌ | ❌ | ❌ |
+| 多租户 | ✅ Row-level | ❌ | ❌ | ❌ |
+| Rate Limit | ✅ 令牌桶 | ❌ | ❌ | ❌ |
+| 审计日志 | ✅ 内置 | ❌ | ❌ | ❌ |
+| Federation | ✅ Gateway | ❌ | ❌ | ❌ |
+| Spring AI 集成 | ✅ 原生 | ❌ | ❌ | ❌ |
+| Alibaba 集成 | ✅ DashScope | ❌ | ❌ | ❌ |
+| Grafana 仪表盘 | ✅ 内置 | ❌ | ❌ | ❌ |
+| Docker 部署 | ✅ 多阶段构建 | 手动 | 手动 | 手动 |
+| 企业就绪度 | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+
+---
+
+## 💼 适用场景
+
+### 场景 1: 企业内部 AI Agent 工具平台
+- 需求：RBAC + 审计 + Rate Limit + 多部门隔离
+- 方案：MCP Enterprise + mcp-tenant + OAuth2
+- 交付周期：2-4 周
+
+### 场景 2: SaaS 产品 MCP Server 对外发布
+- 需求：OAuth2 + 多租户 + Federation + 文档
+- 方案：MCP Enterprise + mcp-gateway + 自定义工具
+- 交付周期：4-8 周
+
+### 场景 3: 金融/保险行业合规 MCP 平台
+- 需求：审计日志 + RBAC + 数据脱敏 + 加密
+- 方案：MCP Enterprise + mcp-auth + mcp-tenant
+- 交付周期：6-12 周
+
+### 场景 4: 多模型统一接入网关
+- 需求：DashScope/OpenAI/本地模型统一接入
+- 方案：MCP Enterprise + Federation Gateway + Spring AI
+- 交付周期：3-6 周
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.25 (2026-09-15)_
