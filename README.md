@@ -200,6 +200,30 @@ mcp:
 
 > 📖 详见 [docs/federation-gateway-guide.md](docs/federation-gateway-guide.md) ｜ 发布说明 [docs/V1.25-release-notes.md](docs/V1.25-release-notes.md)
 
+### 🛡 MCP 治理（V1.26）——人类在环审批（HITL）
+
+**回答企业安全评审必问的三句话：①“高权限工具 Agent 能直接调？” ②“审计日志里有手机号/身份证/密钥？” ③“谁批准的这次调用？”** `mcp-governance` 用一套配置全部答掉：
+
+- **风险分级 T0-T4**（OWASP MCP Governance & Risk 五级模型对齐）：显式 `tool-tiers` > 工具分类 > 关键词启发式 > 默认 T2；
+- **人工审批闸门**：T3/T4 工具调用先入审批队列（`-32092 approval_required`），管理员批准后颁发**一次性令牌**（`X-MCP-Approval-Id`），防重放/防工具替换/防调用方替换；
+- **Fail-closed**：deny-tiers 硬拒 / 审批服务不可用即拒 / 配置歧义不乱放行；
+- **敏感数据脱敏**：邮箱、身份证、银行卡、手机号、apiKey/secret/password/token 键值在**入库审计前**打码，审计日志可安全导出；
+- **灰度优先**：出厂 `enforce=false` 只登记不拦截，验证分级准确后一键 `enforce=true` 强制；
+- **管理 REST API**：`/api/admin/governance/approvals·stats·audit·policy`；审计出口 SPI 可换 Kafka/JDBC。
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      enforce: true                 # 灰度 false → 强制 true
+      tool-tiers:                   # 显式覆盖（生产建议必配）
+        finance_transfer: T4
+      require-approval-tiers: [T3, T4]
+      deny-tiers: []
+```
+
+> 📖 详见 [docs/governance-guide.md](docs/governance-guide.md) ｜ 发布说明 [docs/V1.26-release-notes.md](docs/V1.26-release-notes.md)
+
 ### 🌐 MCP + A2A 双协议网关（V1.15 → V1.18）
 
 **Agent 天花板能力：一个网关同时讲 MCP 和 A2A 两种语言。** 2026-08-20 Google A2A 正式并入 Linux Foundation AAIF（与 MCP 同框架治理），「MCP（Agent→工具）+ A2A（Agent→Agent）」双层栈已成为企业参考架构——蚂蚁集团等 JD 已明确要求「MCP + A2A 研发架构」。
@@ -395,6 +419,7 @@ docker compose --profile full up -d
 | **`mcp-integrations/mcp-a2a`** | 🌐 **A2A 双协议网关（V1.15）**：MCP 工具 → A2A Agent Card/Skill，JSON-RPC 分派（message/send、task/send/get/cancel），任意 A2A Agent 可直接调用企业 MCP 工具 |
 | **`mcp-springai-tools`** | 🎯 **Spring AI 工具桥接（V1.23）**：@Tool / ToolCallback / ToolCallbackProvider 三类工具源自动注册为企业 MCP 工具（自动继承 RBAC / 限流 / 审计 / 工具级 Scope / 健康检查），业务代码零改动，15 测试尽绿 |
 | **`mcp-gateway`** | 🌐 **MCP 联邦网关（V1.25）**：聚合任意多个下游 MCP Server（Streamable HTTP / JSON-RPC，零依赖客户端，兼容单 JSON 与 SSE 响应）——联邦工具自动命名空间隔离（`<prefix>__<tool>`）+ 继承 RBAC/限流/审计/Scope + 启动自动同步 + 失败保留/禁用移除 + 管理 REST API（/api/admin/gateway/upstreams·sync·tools·health），22 测试全绿，命中 Sumo Logic「联邦式 MCP 托管」/MintMCP 网关赛道需求 |
+| **`mcp-governance`** | 🛡 **MCP 治理（V1.26）**：人类在环人工审批（HITL）——T3/T4 高风险工具调用先入审批队列，批准后颁发一次性令牌（`X-MCP-Approval-Id`）防重放；风险分级 T0-T4（OWASP MCP Governance 对齐：显式 tool-tiers > 分类语义 > 关键词 > 默认）+ deny-tiers 硬闸门 + Fail-closed + 敏感数据脱敏（邮箱/身份证/银行卡/手机号/密钥，递归 Map）+ 审计事件 + 管理 REST API（/api/admin/governance/*），28 测试全绿，命中 iMagic $40K+「HITL checkpoint」/GSWE 采购「写操作审批+审计」验收项 |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
 ---
@@ -531,6 +556,7 @@ docker compose --profile full up -d
 | **V1.23** | **Spring AI 工具桥接（mcp-integrations/mcp-springai-tools）：@Tool / ToolCallback / ToolCallbackProvider 自动注册为企业 MCP 工具（RBAC/限流/审计/Scope 自动生效）+ 集成指南 + 掘金CSDN稿 + 市场雷达 09-12（沃尔玛 ¥30-55K MCP 网关岗/Sumo Logic MCP 平台岗/OneSeven $4-5K月/Snowflake 收购 Natoma/火山引擎 ¥37.7万 AI Coding 大单）** | ✅ 已完成 |
 | **V1.24** | **可观测性治理开箱即用：内置 Prometheus 告警规则（工具/网关错误率与延迟/存活/流量骤降，9 条）+ Grafana 自动 Provisioning 看板（11 面板总览，docker compose --profile monitoring 即用）+ 可观测性指南（指标体系/企业接入/SLI-SLO/排查手册）+ 市场雷达 09-13（Caterpillar Java+Agent Lead 今日截止/Sumo Logic $207-243K/adidas MCP+Agentic Infra/外包公允价值 $2-12K月）** | ✅ 已完成 |
 | **V1.25** | **MCP 联邦网关（mcp-gateway）：聚合任意多个下游 MCP Server（Streamable HTTP/JSON-RPC 零依赖客户端，兼容 JSON+SSE 响应，initialize→initialized→method 握手序列，Bearer 透传）——联邦工具命名空间隔离（prefix__tool）并自动继承 RBAC/限流/审计/Scope/健康检查 + 启动自动同步 + 失败保留旧工具/禁用移除 + 管理 REST API（upstreams/sync/tools/health）+ 联邦网关指南 + 掘金CSDN稿 + 市场雷达 09-14（MintMCP 网关融资 50+客户/Sumo Logic 联邦式托管 $207-243K/OneSeven Java+Spring MCP $4-5K月/Cotality MCP Server $10.7-13.3K月）** | ✅ 已完成 |
+| **V1.26** | **MCP 治理（mcp-governance）：人类在环 HITL 审批——T3/T4 高风险工具先入审批队列，批准后一次性令牌（X-MCP-Approval-Id）防重放/防工具与调用方替换；风险分级 T0-T4（OWASP 对齐）+ deny-tiers 硬闸门 + Fail-closed + 敏感数据脱敏（邮箱/身份证/银行卡/手机号/密钥/递归 Map）+ 灰度 enforce=false 优先 + 管理 REST API（approvals·stats·audit·policy）+ 治理指南 + 掘金 CSDN 稿 + 市场雷达 09-17（Sumo Logic $207-243K Java MCP/Anthropic $300-560K/EPAM·WhiteCoat·Citi Java-MCP 岗/定制 MCP $3-10K€ 固定价·生产级 $15-40K）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 

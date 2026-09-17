@@ -52,6 +52,12 @@
             <artifactId>mcp-registry</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- V1.26: Governance 治理模块（人工审批/风险分级/脱敏，默认启用 enforce=false 灰度） -->
+        <dependency>
+            <groupId>com.mcp.enterprise</groupId>
+            <artifactId>mcp-governance</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

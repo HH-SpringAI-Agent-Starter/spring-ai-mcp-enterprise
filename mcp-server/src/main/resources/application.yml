@@ -44,8 +44,7 @@ mcp:
         table: ${MCP_SKILL_REGISTRY_TABLE:mcp_skill_registry}
         # V1.22: 启动时自动 CREATE TABLE IF NOT EXISTS（用 Flyway/Liquibase 托管 schema 时置 false）
         init-schema: ${MCP_SKILL_REGISTRY_INIT_SCHEMA:true}
-    # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）
-    # V1.16: 新增 SSE 流式 (message/stream + task/resubscribe) + securitySchemes 声明（mcp-auth 打通第一步）
+    # V1.15: A2A (Agent2Agent) 双协议网关（默认关闭，开启后暴露 /a2a/agent-card 与 /a2a/rpc）    # V1.16: 新增 SSE 流式 (message/stream + task/resubscribe) + securitySchemes 声明（mcp-auth 打通第一步）
     a2a:
       enabled: ${MCP_A2A_ENABLED:false}
       base-path: /a2a
@@ -62,6 +61,34 @@ mcp:
       # "同一把密钥：mcp-auth 发证 + 网关验签 + Agent Card 签名"完整闭环
       card-signing-key: ${MCP_A2A_CARD_SIGNING_KEY:}
       card-key-id: ${MCP_A2A_CARD_KEY_ID:mcp-a2a-1}
+    # V1.26: Governance 治理模块（人类在环审批 HITL + 风险分级 + 敏感数据脱敏，OWASP MCP Governance 对齐）
+    # 出厂默认 enforce=false（灰度）：仅登记风险/审批/审计，不拦截调用；验证后置 true 开启强制
+    # 管理端点: /api/admin/governance/approvals·stats·audit·policy
+    governance:
+      enabled: ${MCP_GOVERNANCE_ENABLED:true}
+      enforce: ${MCP_GOVERNANCE_ENFORCE:false}
+      message-paths:
+        - /api/mcp/message
+        - /api/mcp/v2/message
+        - /mcp
+      approval-header: ${MCP_GOVERNANCE_APPROVAL_HEADER:X-MCP-Approval-Id}
+      default-tier: T2
+      require-approval-tiers: [T3, T4]
+      deny-tiers: []
+      # 显式工具等级覆盖（生产建议必配：比关键词启发式更可靠）
+      tool-tiers:
+        #   finance_transfer: T4
+        #   db_execute: T4
+      approval:
+        enabled: true
+        ttl-seconds: 900
+        max-pending: 5000
+      redaction:
+        enabled: true
+        mask: "***"
+      audit:
+        max-events: 2000
+        log-to-slf4j: true
   tool:
     http:
       enabled: true

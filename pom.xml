@@ -56,6 +56,8 @@
         <module>mcp-registry</module>
         <!-- V1.25: MCP Federation Gateway 联邦网关 - 聚合多个下游 MCP Server（命名空间隔离 + 健康检查 + 运行时刷新） -->
         <module>mcp-gateway</module>
+        <!-- V1.26: MCP Governance 治理模块 - 人工审批(HITL) + 风险分级 + 敏感数据脱敏（OWASP MCP Governance 对齐） -->
+        <module>mcp-governance</module>
         <!-- V1.2: Spring AI Alibaba 集成 + Spring AI Client 示例纳入默认构建（依赖 spring-milestones/aliyun 仓库，已在全局 repositories 声明） -->
         <module>mcp-integrations/mcp-alibaba</module>
         <!-- V1.15: A2A (Agent2Agent) 双协议网关：MCP 工具 → A2A Agent Card/Skill -->

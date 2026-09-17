@@ -1,0 +1,194 @@
+# MCP Governance 治理模块指南（V1.26）
+
+> 一句话：**在企业 MCP Server 上加一道「人类在环（Human-in-the-Loop）」安全闸门** ——
+> 高风险工具（删库、转账、发信、部署）默认**不能由 Agent 直接执行**，
+> 必须先经过管理员审批；所有判定与调用都带**风险分级**与**敏感数据脱敏审计**。
+
+本模块对齐 **OWASP MCP Governance & Risk Project** 的五级风险模型，
+并直接回应企业采购中最常被问的一句话：**"Agent 调用我们数据库/财务工具，谁来负责？"**
+
+---
+
+## 1. 为什么需要 Governance
+
+| 没有治理的 MCP Server | 有治理的 MCP Server |
+|---|---|
+| Agent 拿到 API Key 就能调 `finance_transfer` | 转账工具等级 T4 → 自动进入人工审批队列 |
+| 审计日志记录完整参数（含手机号/身份证/密钥） | 审计前先脱敏：`138****8000`、`apiKey=***` |
+| 工具删库失败 = 不可逆事故 | `db_delete` 命中 deny-tiers 直接拒绝，物理不可达 |
+| "谁批准的这次调用？" 无答案 | 每个审批请求有 id/审批人/时间/理由/一次性令牌 |
+
+**Fail-closed 原则**：配置歧义或审批服务不可用时，默认**拒绝**而非放行。
+状态机不允许静默覆盖——非法流转（对已批准记录再批准）直接抛异常。
+
+---
+
+## 2. 核心概念
+
+### 2.1 风险分级（T0–T4，对齐 OWASP 五级模型）
+
+| 等级 | 含义 | 典型工具 | 默认策略 |
+|---|---|---|---|
+| T0 | 公开数据只读 | 天气 / 汇率 | 放行 |
+| T1 | 内部数据非敏感读 | 搜索 / 目录列举 | 放行 |
+| T2 | 敏感数据读 | CRM / 用户 / 财务指标查询 | 放行（默认等级） |
+| T3 | 写操作 / 有副作用 | 创建工单、发邮件、退款 | **需人工审批** |
+| T4 | 特权 / 关键操作 | 删库、权限变更、部署、转账 | **需人工审批** |
+
+工具等级判定优先级（高 → 低）：
+
+1. **显式配置** `tool-tiers`（生产建议必配，最可靠）；
+2. **分类语义**：`ToolDefinition.category`（system→T3，finance→T2，search→T1…）；
+3. **关键词启发式**：工具名含 `delete/drop/truncate` → T4；`create/update/transfer` → T3；
+   含 `password/payment/financ` → T2；含 `get/list/query` → T1；
+4. **默认等级** `default-tier`（安全默认 T2）。
+
+### 2.2 审批生命周期
+
+```
+PENDING ──approve──▶ APPROVED ──consume──▶ CONSUMED（一次性，防重放）
+   │                    │
+   ├─reject──▶ REJECTED  └─ 工具不一致/调用方不一致/过期 → 校验失败，不消费
+   └─过期──▶ EXPIRED（15 分钟默认，sweep 惰性清理）
+```
+
+**一次性令牌**：批准后调用方在重试请求中携带 `X-MCP-Approval-Id: <id>`，
+校验通过即消费置为 `CONSUMED`——同一个审批令牌**不能**用于第二次调用（防重放）。
+
+### 2.3 敏感数据脱敏
+
+- **内置规则**（按固定顺序）：邮箱 → 密钥类键值（apiKey/secret/password/token/credential）→
+  身份证（18 位）→ 银行卡（16–19 位）→ 手机号（1[3-9]xxxxxxxxx）；
+- **Map 键名识别**：参数里 `{"password": "hunter2"}` 这种整键打码 → `{"password": "***"}`；
+- 审批队列与审计事件中的参数**全部为脱敏后内容**；
+- 关闭方式：`mcp.enterprise.governance.redaction.enabled=false`（不推荐）。
+
+---
+
+## 3. 快速开始
+
+### 3.1 默认配置（灰度模式，零侵入）
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      enabled: true        # 模块总开关
+      enforce: false       # 灰度模式：只登记风险与审批请求，不拦截调用
+      require-approval-tiers: [T3, T4]
+      deny-tiers: []
+```
+
+`enforce=false` 时，治理过滤器**不拦截任何调用**，
+但会：登记每个 tools/call 的等级判定、把 T3/T4 工具调用写入审批队列、输出审计事件。
+**建议先在灰度模式跑一周**，确认分级准确后切 `enforce=true`。
+
+### 3.2 开启强制模式
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      enforce: true
+      tool-tiers:                    # 生产必配：显式覆盖比启发式更可靠
+        finance_transfer: T4
+        db_execute: T4
+        user_create: T3
+        weather_get: T0
+      approval:
+        enabled: true
+        ttl-seconds: 900             # 审批有效期 15 分钟
+```
+
+### 3.3 完整调用闭环
+
+```bash
+# 1) Agent 调用高等级工具 → 返回 approval_required（HTTP 200，JSON-RPC 错误码 -32092）
+curl -s -X POST http://localhost:8080/api/mcp/message \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"finance_transfer","arguments":{"to":"acct_2","amount":100000}}}'
+
+# 响应：
+# {"jsonrpc":"2.0","id":1,"error":{"code":-32092,"message":"工具等级 T4 需人工审批后执行",
+#   "data":{"approvalId":"7f2c…","tier":"T4","status":"PENDING",
+#           "expiresAt":"2026-09-17T13:45:00Z","approvalHeader":"X-MCP-Approval-Id"}}}
+
+# 2) 管理员审批
+curl -s -X POST http://localhost:8080/api/admin/governance/approvals/7f2c…/approve \
+  -H "Content-Type: application/json" \
+  -d '{"decidedBy":"ops-lead","reason":"月度对公转账，业务单已确认"}'
+
+# 3) Agent 携带审批令牌重试 → 放行并执行
+curl -s -X POST http://localhost:8080/api/mcp/message \
+  -H "Authorization: Bearer <token>" \
+  -H "X-MCP-Approval-Id: 7f2c…" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"finance_transfer","arguments":{...}}}'
+
+# 4) 审计复核
+curl -s http://localhost:8080/api/admin/governance/audit?limit=10
+curl -s http://localhost:8080/api/admin/governance/stats
+```
+
+---
+
+## 4. 管理 REST API
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/admin/governance/approvals?status=PENDING` | 审批列表（可按状态过滤） |
+| GET | `/api/admin/governance/approvals/{id}` | 审批详情 |
+| POST | `/api/admin/governance/approvals/{id}/approve` | 批准 `{decidedBy, reason}` |
+| POST | `/api/admin/governance/approvals/{id}/reject` | 拒绝 `{decidedBy, reason}` |
+| GET | `/api/admin/governance/stats` | 审批统计（total/pending/approved/rejected/expired/consumed） |
+| GET | `/api/admin/governance/audit?limit=50` | 最近治理审计事件 |
+| GET | `/api/admin/governance/policy` | 当前生效策略视图 |
+
+> ⚠️ 与其它 `/api/admin/*` 一样，**必须**置于 mcp-auth / 网关鉴权之后，绝不能公网裸奔——
+> 批准即授权执行高等级工具。
+
+---
+
+## 5. JSON-RPC 错误码
+
+| 错误码 | 场景 | data 字段 |
+|---|---|---|
+| `-32092` | `approval_required`：需人工审批 | approvalId / tier / status / expiresAt / approvalHeader |
+| `-32093` | `governance_denied`：命中 deny-tiers 硬拒 | errorCode / tier |
+
+错误响应保持 **HTTP 200 + JSON-RPC error**（协议正确，MCP 客户端可正常解析）。
+
+---
+
+## 6. 模块结构
+
+```
+mcp-governance/
+├── RiskTier                          # T0–T4 风险分级（OWASP 对齐，宽容解析 T3_WRITE/3）
+├── McpGovernanceProperties           # 配置：mcp.enterprise.governance.*
+├── McpToolRiskClassifier             # 工具分级：显式 > 分类语义 > 关键词 > 默认
+├── GovernanceDecision                # 判定结果（ALLOW/REQUIRE_APPROVAL/DENY）
+├── ApprovalRequest / ApprovalStore   # 审批模型 + 存储 SPI
+├── InMemoryApprovalStore             # 有界内存实现（可换 JDBC/Redis）
+├── McpApprovalService                # 审批服务：创建/批准/拒绝/一次性消费/过期清理
+├── McpGovernanceGuard                # 判定核心（Fail-closed）
+├── SensitiveDataRedactor             # PII/密钥脱敏（递归 Map/List）
+├── McpGovernanceAuditSink            # 审计出口 SPI（默认内存环形缓冲 + SLF4J）
+├── McpGovernanceFilter               # JSON-RPC 入口过滤器（tools/call 判定）
+├── McpGovernanceAdminController      # 管理 REST API（/api/admin/governance）
+└── McpGovernanceAutoConfiguration    # Spring Boot 自动装配（灰度/强制开关）
+```
+
+## 7. 生产落地建议
+
+1. **分类先行**：灰度模式观察一周，用 `/api/admin/governance/policy` + audit 校准 tool-tiers；
+2. **审批人=真人**：审批端接入钉钉/企微/飞书审批流（ApprovalStore 换实现或轮询 admin API）；
+3. **审计入仓**：`McpGovernanceAuditSink` 换成 Kafka/JDBC，满足安全团队取证需求；
+4. **与 Scope 配合**：V1.19 工具级 Scope 管「谁有权限调」，Governance 管「调了要不要人批」，
+   两者叠加 = 身份权限 + 高风险行为双重防线；
+5. **deny-tiers 常开**：`delete/truncate/drop` 类工具建议直接进硬闸门，不给审批机会。
+
+---
+
+*关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md)*
