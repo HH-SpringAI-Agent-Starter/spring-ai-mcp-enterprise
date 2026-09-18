@@ -28,6 +28,9 @@ COPY mcp-tools/tool-http/pom.xml mcp-tools/tool-http/
 COPY mcp-tools/tool-finance/pom.xml mcp-tools/tool-finance/
 COPY mcp-integrations/mcp-alibaba/pom.xml mcp-integrations/mcp-alibaba/
 COPY mcp-integrations/mcp-a2a/pom.xml mcp-integrations/mcp-a2a/
+COPY mcp-integrations/mcp-springai-tools/pom.xml mcp-integrations/mcp-springai-tools/
+COPY mcp-gateway/pom.xml mcp-gateway/
+COPY mcp-governance/pom.xml mcp-governance/
 COPY mcp-examples/mcp-client-spring-ai/pom.xml mcp-examples/mcp-client-spring-ai/
 
 # 预下载依赖（利用 Docker 层缓存）；失败不阻塞（源码阶段会重试）
@@ -35,6 +38,7 @@ RUN mvn dependency:go-offline --no-transfer-progress || true
 
 # 复制源码并构建 mcp-server 及其依赖链
 # (-pl mcp-server -am: 只构建 server 与所需模块，避免可选集成模块拉取额外仓库)
+# 注意：mcp-server 依赖 mcp-governance / mcp-a2a，其 pom 必须在上方 COPY 列表中存在
 COPY . .
 RUN mvn clean package -DskipTests -pl mcp-server -am --no-transfer-progress
 
