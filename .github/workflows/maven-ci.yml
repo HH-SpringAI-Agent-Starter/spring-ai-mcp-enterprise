@@ -71,7 +71,11 @@ jobs:
           mcp-auth/target/*.jar
           mcp-tenant/target/*.jar
           mcp-registry/target/*.jar
+          mcp-gateway/target/*.jar
+          mcp-governance/target/*.jar
           mcp-integrations/mcp-alibaba/target/*.jar
+          mcp-integrations/mcp-a2a/target/*.jar
+          mcp-integrations/mcp-springai-tools/target/*.jar
           mcp-examples/mcp-client-spring-ai/target/*.jar
         retention-days: 7
 
@@ -223,7 +227,11 @@ jobs:
           mcp-auth/target/*.jar
           mcp-tenant/target/*.jar
           mcp-registry/target/*.jar
+          mcp-gateway/target/*.jar
+          mcp-governance/target/*.jar
           mcp-integrations/mcp-alibaba/target/*.jar
+          mcp-integrations/mcp-a2a/target/*.jar
+          mcp-integrations/mcp-springai-tools/target/*.jar
           mcp-examples/mcp-client-spring-ai/target/*.jar
         draft: false
         prerelease: false
