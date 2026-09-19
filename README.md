@@ -209,6 +209,7 @@ mcp:
 - **Fail-closed**：deny-tiers 硬拒 / 审批服务不可用即拒 / 配置歧义不乱放行；
 - **敏感数据脱敏**：邮箱、身份证、银行卡、手机号、apiKey/secret/password/token 键值在**入库审计前**打码，审计日志可安全导出；
 - **灰度优先**：出厂 `enforce=false` 只登记不拦截，验证分级准确后一键 `enforce=true` 强制；
+- **审批状态持久化（V1.28）**：`approval.store=jdbc` 把审批队列落到单表（方言无关：H2/MySQL/PG/SQL Server），多实例部署下审批-消费跨副本可见，重启不丢审批记录（审计合规）；无数据源自动回退内存；
 - **管理 REST API**：`/api/admin/governance/approvals·stats·audit·policy`；审计出口 SPI 可换 Kafka/JDBC。
 
 ```yaml

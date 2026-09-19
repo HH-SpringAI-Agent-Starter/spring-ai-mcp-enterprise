@@ -37,6 +37,20 @@
             <artifactId>spring-boot-autoconfigure</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- V1.28: optional JDBC persistence backend (ApprovalStore). Provided/optional:
+             consumers only need spring-jdbc when they opt in to approval.store=jdbc. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <!-- V1.28 test: in-memory H2 to verify JDBC persistence round-trips -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

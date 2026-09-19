@@ -45,6 +45,22 @@ public class ApprovalRequest {
         this.expiresAt = now.plusSeconds(ttlSeconds > 0 ? ttlSeconds : 900);
     }
 
+    /**
+     * V1.28 包私有还原构造器：从持久化存储（{@code JdbcApprovalStore}）重建
+     * 既有审批请求，保持 id / createdAt / expiresAt 与库中一致。
+     */
+    ApprovalRequest(String id, String toolName, RiskTier tier, Map<String, Object> redactedArgs,
+                    String requestedBy, String reason, Instant createdAt, Instant expiresAt) {
+        this.id = id == null ? UUID.randomUUID().toString() : id;
+        this.toolName = toolName;
+        this.tierCode = tier == null ? RiskTier.T2.getCode() : tier.getCode();
+        this.arguments = redactedArgs == null ? Map.of() : redactedArgs;
+        this.requestedBy = requestedBy;
+        this.reason = reason;
+        this.createdAt = createdAt == null ? Instant.now() : createdAt;
+        this.expiresAt = expiresAt == null ? this.createdAt.plusSeconds(900) : expiresAt;
+    }
+
     public String getId() { return id; }
     public String getToolName() { return toolName; }
     public String getTierCode() { return tierCode; }

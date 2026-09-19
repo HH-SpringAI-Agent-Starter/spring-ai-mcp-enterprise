@@ -3,6 +3,7 @@ package com.mcp.enterprise.governance;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -12,6 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -60,7 +62,23 @@ public class McpGovernanceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ApprovalStore mcpApprovalStore(McpGovernanceProperties properties) {
+    public ApprovalStore mcpApprovalStore(McpGovernanceProperties properties,
+                                          ObjectProvider<JdbcTemplate> jdbcTemplateProvider) {
+        // V1.28: store=jdbc 且存在数据源时启用 JDBC 审批存储（多实例共享审批状态）
+        if ("jdbc".equalsIgnoreCase(properties.getApproval().getStore())) {
+            JdbcTemplate jdbc = jdbcTemplateProvider.getIfAvailable();
+            if (jdbc == null) {
+                log.warn("?? [V1.28] approval.store=jdbc requested but no JdbcTemplate/DataSource found; "
+                        + "falling back to in-memory ApprovalStore");
+                return new InMemoryApprovalStore(properties.getApproval().getMaxPending());
+            }
+            JdbcApprovalStore store = new JdbcApprovalStore(jdbc, properties.getApproval().getTable());
+            if (properties.getApproval().isInitSchema()) {
+                store.initSchema();
+            }
+            log.info("?? [V1.28] Approval JDBC persistence enabled (table={})", properties.getApproval().getTable());
+            return store;
+        }
         int maxPending = properties.getApproval().getMaxPending();
         return new InMemoryApprovalStore(maxPending);
     }

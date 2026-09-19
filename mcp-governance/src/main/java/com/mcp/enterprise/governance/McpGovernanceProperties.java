@@ -30,6 +30,9 @@ import java.util.Map;
  *         enabled: true
  *         ttl-seconds: 900            # 审批有效期（15 分钟）
  *         max-pending: 5000           # 挂起审批上限（防滥用/防存储膨胀）
+ *         store: memory               # V1.28: memory | jdbc（jdbc 需要数据源，多实例共享审批状态）
+ *         table: mcp_approval_requests # V1.28: JDBC 表名（store=jdbc 时生效）
+ *         init-schema: true           # V1.28: 启动时幂等建表（store=jdbc 时生效）
  *       redaction:
  *         enabled: true
  *         mask: "***"
@@ -144,12 +147,27 @@ public class McpGovernanceProperties {
         private long ttlSeconds = 900;
         private int maxPending = 5000;
 
+        /** V1.28: 审批存储后端：memory（默认）| jdbc */
+        private String store = "memory";
+
+        /** V1.28: JDBC 表名（store=jdbc 时生效） */
+        private String table = "mcp_approval_requests";
+
+        /** V1.28: 启动时幂等建表（store=jdbc 时生效） */
+        private boolean initSchema = true;
+
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public long getTtlSeconds() { return ttlSeconds; }
         public void setTtlSeconds(long ttlSeconds) { this.ttlSeconds = ttlSeconds; }
         public int getMaxPending() { return maxPending; }
         public void setMaxPending(int maxPending) { this.maxPending = maxPending; }
+        public String getStore() { return store; }
+        public void setStore(String store) { this.store = store; }
+        public String getTable() { return table; }
+        public void setTable(String table) { this.table = table; }
+        public boolean isInitSchema() { return initSchema; }
+        public void setInitSchema(boolean initSchema) { this.initSchema = initSchema; }
     }
 
     public static class Redaction {

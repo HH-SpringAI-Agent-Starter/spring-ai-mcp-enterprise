@@ -170,17 +170,73 @@ mcp-governance/
 ├── McpToolRiskClassifier             # 工具分级：显式 > 分类语义 > 关键词 > 默认
 ├── GovernanceDecision                # 判定结果（ALLOW/REQUIRE_APPROVAL/DENY）
 ├── ApprovalRequest / ApprovalStore   # 审批模型 + 存储 SPI
-├── InMemoryApprovalStore             # 有界内存实现（可换 JDBC/Redis）
+├── InMemoryApprovalStore             # 有界内存实现（默认）
+├── JdbcApprovalStore                 # V1.28: JDBC 实现（多实例共享审批状态，方言无关）
 ├── McpApprovalService                # 审批服务：创建/批准/拒绝/一次性消费/过期清理
 ├── McpGovernanceGuard                # 判定核心（Fail-closed）
 ├── SensitiveDataRedactor             # PII/密钥脱敏（递归 Map/List）
 ├── McpGovernanceAuditSink            # 审计出口 SPI（默认内存环形缓冲 + SLF4J）
 ├── McpGovernanceFilter               # JSON-RPC 入口过滤器（tools/call 判定）
 ├── McpGovernanceAdminController      # 管理 REST API（/api/admin/governance）
-└── McpGovernanceAutoConfiguration    # Spring Boot 自动装配（灰度/强制开关）
+└── McpGovernanceAutoConfiguration    # Spring Boot 自动装配（灰度/强制开关 + store 选择）
 ```
 
-## 7. 生产落地建议
+## 7. 审批状态持久化（V1.28：store=jdbc）
+
+### 7.1 为什么需要 JDBC
+
+V1.26 的默认实现 {@code InMemoryApprovalStore} 把审批队列放在单个 JVM 内存里：
+单实例演示没问题，但**企业多实例拓扑下 HITL 闭环会断**——
+审批人批准了一条请求，Agent 重试时请求可能落到另一个实例，状态不可见。
+另外，重启/滚动发布会清空审计与审批记录（合规取证要求留存）。
+
+V1.28 新增 {@code JdbcApprovalStore}：审批请求持久化到单张表，
+「创建 → 审批 → 消费」跨实例可见，且 `created_at/decided_at` 全程留痕。
+
+### 7.2 启用方式
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      approval:
+        store: jdbc                 # memory（默认）| jdbc
+        table: mcp_approval_requests # 可自定义表名
+        init-schema: true           # 启动时幂等建表
+```
+
+自动配置行为：
+- 应用 classpath 上有 `JdbcTemplate`（即已配置 DataSource）→ 自动创建 JDBC store 并建表；
+- 配置了 `store=jdbc` 但没有数据源 → 打 WARN 并回退内存实现（进程不挂，可用性优先）；
+- 未配置 → 维持 V1.26 内存行为（零依赖）。
+
+### 7.3 表结构（方言无关）
+
+单表 `mcp_approval_requests`，只使用 `CREATE TABLE IF NOT EXISTS` / `INSERT` /
+`SELECT` / `UPDATE` 绑定参数，H2（测试）、MySQL/MariaDB、PostgreSQL、SQL Server 直接可跑：
+
+```
+id              VARCHAR(64)   NOT NULL PRIMARY KEY
+ tool_name       VARCHAR(256)  NOT NULL
+ tier_code       VARCHAR(16)   NOT NULL
+ arguments       VARCHAR(4000)            -- 脱敏后参数 JSON
+ requested_by    VARCHAR(256)
+ reason          VARCHAR(1024)
+ status          VARCHAR(16)   NOT NULL   -- PENDING/APPROVED/REJECTED/EXPIRED/CONSUMED
+ created_at      BIGINT        NOT NULL   -- epoch millis
+ expires_at      BIGINT        NOT NULL
+ decided_at      BIGINT                   -- 可空
+ decided_by      VARCHAR(256)
+ decision_reason VARCHAR(1024)
+```
+
+### 7.4 一致性语义
+
+- **读穿式**：`get/list` 每次查库，无本地缓存、无一致性窗口，天然多实例共享；
+- **Fail-soft 写入**：单条写失败记 WARN 并抛给上层——审批是 Fail-closed 语义，宁可报错不可错放；
+- **一次性令牌**：`CONSUMED` 状态落库，重放校验跨实例同样生效（防重放从「单机承诺」升级为「集群承诺」）。
+
+## 8. 生产落地建议
 
 1. **分类先行**：灰度模式观察一周，用 `/api/admin/governance/policy` + audit 校准 tool-tiers；
 2. **审批人=真人**：审批端接入钉钉/企微/飞书审批流（ApprovalStore 换实现或轮询 admin API）；
@@ -191,4 +247,4 @@ mcp-governance/
 
 ---
 
-*关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md)*
+*关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md) · [V1.28 发布说明](V1.28-release-notes.md)*
