@@ -236,7 +236,85 @@ id              VARCHAR(64)   NOT NULL PRIMARY KEY
 - **Fail-soft 写入**：单条写失败记 WARN 并抛给上层——审批是 Fail-closed 语义，宁可报错不可错放；
 - **一次性令牌**：`CONSUMED` 状态落库，重放校验跨实例同样生效（防重放从「单机承诺」升级为「集群承诺」）。
 
-## 8. 生产落地建议
+## 8. 审计事件持久化（V1.29：audit.store=jdbc）
+
+### 8.1 为什么需要落库
+
+V1.26 默认审计只活在单个 JVM 内存里（有界环形缓冲 + SLF4J 日志），对企业合规场景有两个缺口：
+
+- **审计轨迹丢失**：重启/滚动发布即清空，无法回答「上周谁在什么时候调过 finance_transfer？」；
+- **多实例各自为政**：K8s 多副本下每条事件只存在于处理它的那个 Pod，审计员没有统一的全局视图。
+
+审计日志是合规资产（取证、报表、SIEM 对接），「No logging = no production use」——
+落库才谈得上审计。V1.29 新增 `JdbcGovernanceAuditSink`：每条治理判定事件持久化到单张表，
+跨实例可见、重启不丢失，支持 SQL 查询与导出。
+
+### 8.2 启用方式
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      audit:
+        store: jdbc                 # memory（默认）| jdbc
+        table: mcp_governance_audit # 可自定义表名
+        init-schema: true           # 启动时幂等建表
+        log-to-slf4j: true          # 落库同时保留 SLF4J 日志（运维侧零改动）
+```
+
+自动配置行为：
+- 应用 classpath 上有 `JdbcTemplate`（即已配置 DataSource）→ 自动创建 JDBC sink 并建表；
+- 配置了 `store=jdbc` 但没有数据源 → 打 WARN 并回退内存实现（进程不挂，可用性优先）；
+- 未配置 → 维持 V1.26 内存行为（零依赖，默认值不变）。
+
+### 8.3 表结构（方言无关）
+
+单表 `mcp_governance_audit`，只使用 `CREATE TABLE IF NOT EXISTS` / `INSERT` /
+`SELECT` 绑定参数，H2（测试）、MySQL/MariaDB、PostgreSQL、SQL Server 直接可跑：
+
+```
+id          VARCHAR(64)   NOT NULL PRIMARY KEY   -- 事件 ID（时间戳+序号）
+seq         BIGINT        NOT NULL               -- 进程内序号（同毫秒内排序 tiebreaker）
+ts          BIGINT        NOT NULL               -- epoch millis
+tool        VARCHAR(256)  NOT NULL
+tier        VARCHAR(16)
+caller      VARCHAR(256)
+decision    VARCHAR(32)   NOT NULL              -- ALLOW / APPROVAL_REQUIRED / DENY...
+approval_id VARCHAR(64)
+arguments   VARCHAR(4000)                       -- 脱敏后参数 JSON（值级截断保证合法 JSON）
+message     VARCHAR(1024)
+```
+
+### 8.4 一致性语义
+
+- **只写不删**：审计日志是合规资产，本实现只 INSERT + SELECT，不提供 DELETE/UPDATE
+  （防篡改；物理清理留给企业自己的保留策略任务）；
+- **fail-soft 写入**：单条落库失败记录 WARN 并继续——审计是观察者，不是关键路径，
+  绝不让审计链路打挂业务调用；
+- **近实时双写**：落库的同时保持 SLF4J 输出（可关），grep 日志与 SQL 查询两路并存；
+- **值级截断**：字符串参数截断到 400 字符再序列化，保证落库 JSON 始终合法可反序列化，
+  不产生截断的半截 JSON。
+
+### 8.5 查询示例
+
+```sql
+-- 近 24 小时所有审批类判定
+SELECT ts, tool, tier, caller, decision, approval_id
+FROM mcp_governance_audit
+WHERE ts > (UNIX_TIMESTAMP() - 86400) * 1000
+ORDER BY ts DESC;
+
+-- 某个高等级工具的调用历史（合规取证）
+SELECT * FROM mcp_governance_audit
+WHERE tool = 'finance_transfer'
+ORDER BY ts DESC;
+```
+
+管理面板仍可用 `GET /api/admin/governance/audit?limit=50`（JDBC 模式读取同一张表，
+`count` 统计总数）。
+
+## 9. 生产落地建议
+
 
 1. **分类先行**：灰度模式观察一周，用 `/api/admin/governance/policy` + audit 校准 tool-tiers；
 2. **审批人=真人**：审批端接入钉钉/企微/飞书审批流（ApprovalStore 换实现或轮询 admin API）；
@@ -247,4 +325,4 @@ id              VARCHAR(64)   NOT NULL PRIMARY KEY
 
 ---
 
-*关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md) · [V1.28 发布说明](V1.28-release-notes.md)*
+*关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md) · [V1.28 发布说明](V1.28-release-notes.md) · [V1.29 发布说明](V1.29-release-notes.md)*

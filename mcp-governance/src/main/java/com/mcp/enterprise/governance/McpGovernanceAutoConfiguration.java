@@ -93,7 +93,27 @@ public class McpGovernanceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public McpGovernanceAuditSink mcpGovernanceAuditSink(McpGovernanceProperties properties) {
+    public McpGovernanceAuditSink mcpGovernanceAuditSink(McpGovernanceProperties properties,
+                                                         ObjectProvider<JdbcTemplate> jdbcTemplateProvider) {
+        // V1.29: audit.store=jdbc 且存在数据源时启用 JDBC 审计存储（事件落库可查询、重启不丢失）
+        if ("jdbc".equalsIgnoreCase(properties.getAudit().getStore())) {
+            JdbcTemplate jdbc = jdbcTemplateProvider.getIfAvailable();
+            if (jdbc == null) {
+                log.warn("🛡 [V1.29] audit.store=jdbc requested but no JdbcTemplate/DataSource found; "
+                        + "falling back to in-memory GovernanceAuditSink");
+                return new InMemoryGovernanceAuditSink(
+                        properties.getAudit().getMaxEvents(),
+                        properties.getAudit().isLogToSlf4j());
+            }
+            JdbcGovernanceAuditSink sink = new JdbcGovernanceAuditSink(
+                    jdbc, properties.getAudit().getTable(), properties.getAudit().isLogToSlf4j());
+            if (properties.getAudit().isInitSchema()) {
+                sink.initSchema();
+            }
+            log.info("🛡 [V1.29] Governance Audit JDBC persistence enabled (table={})",
+                    properties.getAudit().getTable());
+            return sink;
+        }
         return new InMemoryGovernanceAuditSink(
                 properties.getAudit().getMaxEvents(),
                 properties.getAudit().isLogToSlf4j());

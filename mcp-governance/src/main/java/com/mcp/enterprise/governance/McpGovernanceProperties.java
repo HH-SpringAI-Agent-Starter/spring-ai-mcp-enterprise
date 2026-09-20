@@ -39,6 +39,9 @@ import java.util.Map;
  *       audit:
  *         max-events: 2000
  *         log-to-slf4j: true
+ *         store: memory               # V1.29: memory | jdbc（jdbc 需要数据源，审计事件落库可查询）
+ *         table: mcp_governance_audit # V1.29: JDBC 表名（store=jdbc 时生效）
+ *         init-schema: true           # V1.29: 启动时幂等建表（store=jdbc 时生效）
  * </pre>
  */
 @ConfigurationProperties(prefix = "mcp.enterprise.governance")
@@ -184,9 +187,24 @@ public class McpGovernanceProperties {
         private int maxEvents = 2000;
         private boolean logToSlf4j = true;
 
+        /** V1.29: 审计存储后端：memory（默认）| jdbc */
+        private String store = "memory";
+
+        /** V1.29: JDBC 表名（store=jdbc 时生效） */
+        private String table = "mcp_governance_audit";
+
+        /** V1.29: 启动时幂等建表（store=jdbc 时生效） */
+        private boolean initSchema = true;
+
         public int getMaxEvents() { return maxEvents; }
         public void setMaxEvents(int maxEvents) { this.maxEvents = maxEvents; }
         public boolean isLogToSlf4j() { return logToSlf4j; }
         public void setLogToSlf4j(boolean logToSlf4j) { this.logToSlf4j = logToSlf4j; }
+        public String getStore() { return store; }
+        public void setStore(String store) { this.store = store; }
+        public String getTable() { return table; }
+        public void setTable(String table) { this.table = table; }
+        public boolean isInitSchema() { return initSchema; }
+        public void setInitSchema(boolean initSchema) { this.initSchema = initSchema; }
     }
 }
