@@ -376,6 +376,7 @@ A: 最小配置 256MB 内存 + 1 核 CPU 即可运行。推荐生产配置 1GB �
 ## 🗺️ 路线图
 
 ### V1.x（当前 — 平台治理）
+- [x] **V1.30 治理审计可运营化（mcp-governance）：审计多条件检索 + CSV 导出（SIEM/Excel/监管报送）+ 保留策略 TTL 清理（GDPR 数据最小化）+ 市场雷达 09-21 → 当前**
 - [x] **V1.21 Skill Registry 技能注册表（mcp-registry：注册/版本管理/激活/故障回滚/灰度路由 + 管理/发现 REST API）+ proposal 模板库 + 市场雷达 09-06 ← 当前**
 - [x] **V1.20 开发变现通道（Upwork 官方 MCP Server 接入指南/安全审查对照表/JD 话术包）**
 - [x] **V1.19 工具级 Scope 权限映射（Token Scope → Tool ACL）**

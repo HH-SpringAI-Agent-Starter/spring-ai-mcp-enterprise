@@ -99,8 +99,77 @@ public class McpGovernanceAdminController {
     }
 
     @GetMapping("/audit")
-    public Map<String, Object> audit(@RequestParam(defaultValue = "50") int limit) {
-        return Map.of("count", auditSink.recent(limit).size(), "events", auditSink.recent(limit));
+    public Map<String, Object> audit(@RequestParam(defaultValue = "50") int limit,
+                                     @RequestParam(required = false) String tool,
+                                     @RequestParam(required = false) String caller,
+                                     @RequestParam(required = false) String decision,
+                                     @RequestParam(required = false) String tier,
+                                     @RequestParam(required = false) String from,
+                                     @RequestParam(required = false) String to) {
+        // V1.30: 多条件过滤检索（SIEM/取证/管理面板）
+        McpGovernanceAuditSink.Query q = new McpGovernanceAuditSink.Query(
+                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit);
+        List<Map<String, Object>> events = auditSink.search(q);
+        return Map.of("count", events.size(), "events", events);
+    }
+
+    @GetMapping(value = "/audit/export", produces = "text/csv;charset=UTF-8")
+    public String exportCsv(@RequestParam(defaultValue = "1000") int limit,
+                            @RequestParam(required = false) String tool,
+                            @RequestParam(required = false) String caller,
+                            @RequestParam(required = false) String decision,
+                            @RequestParam(required = false) String tier,
+                            @RequestParam(required = false) String from,
+                            @RequestParam(required = false) String to) {
+        // V1.30: CSV 导出（SIEM 导入 / Excel 取证 / 监管报送）；字段含逗号/引号/换行时按 RFC 4180 转义
+        McpGovernanceAuditSink.Query q = new McpGovernanceAuditSink.Query(
+                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit);
+        List<Map<String, Object>> events = auditSink.search(q);
+        StringBuilder sb = new StringBuilder();
+        sb.append("\uFEFF"); // UTF-8 BOM，Excel 直接打开中文不乱码
+        sb.append("timestamp,tool,tier,caller,decision,approvalId,message\r\n");
+        for (Map<String, Object> e : events) {
+            sb.append(csv(e.get("timestamp"))).append(',')
+              .append(csv(e.get("tool"))).append(',')
+              .append(csv(e.get("tier"))).append(',')
+              .append(csv(e.get("caller"))).append(',')
+              .append(csv(e.get("decision"))).append(',')
+              .append(csv(e.get("approvalId"))).append(',')
+              .append(csv(e.get("message"))).append("\r\n");
+        }
+        return sb.toString();
+    }
+
+    @PostMapping("/audit/prune")
+    public Map<String, Object> prune(@RequestParam(defaultValue = "90") int retentionDays) {
+        // V1.30: 保留策略——清理早于 retentionDays 天的历史审计事件（合规 TTL，可配 cron 定期触发）
+        java.time.Instant cutOff = java.time.Instant.now().minus(java.time.Duration.ofDays(Math.max(1, retentionDays)));
+        int deleted = auditSink.deleteBefore(cutOff);
+        log.info("🧹 [V1.30] audit prune: retentionDays={}, deleted={}", retentionDays, deleted);
+        return Map.of("retentionDays", retentionDays, "cutOff", cutOff.toString(), "deleted", deleted);
+    }
+
+    private static java.time.Instant parseInstant(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        try {
+            return java.time.Instant.parse(s);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "非法时间格式(需 ISO-8601，如 2026-09-01T00:00:00Z): " + s);
+        }
+    }
+
+    private static String csv(Object v) {
+        if (v == null) {
+            return "";
+        }
+        String s = String.valueOf(v);
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 
     @GetMapping("/policy")

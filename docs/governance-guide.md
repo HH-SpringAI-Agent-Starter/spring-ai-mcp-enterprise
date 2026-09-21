@@ -326,3 +326,50 @@ ORDER BY ts DESC;
 ---
 
 *关联文档：[架构说明](architecture.md) · [安全审查清单](security-review-checklist.md) · [V1.26 发布说明](V1.26-release-notes.md) · [V1.28 发布说明](V1.28-release-notes.md) · [V1.29 发布说明](V1.29-release-notes.md)*
+## 10. 审计检索 / 导出 / 保留策略（V1.30：audit.store=jdbc 的运营闭环）
+
+V1.29 让审计事件落库，V1.30 让落库的审计**可检索、可导出、可合规清理**——补齐企业安全团队完整取证问题链：「发生了什么 → 在哪查 → 怎么交出去 → 留多久」。
+
+### 10.1 多条件检索（search）
+
+`GET /api/admin/governance/audit` 升级为支持过滤参数（无参调用完全兼容，等价 recent(limit)）：
+
+```bash
+# 查某工具近期的拒绝记录
+curl -s "http://localhost:8081/api/admin/governance/audit?tool=finance_transfer&decision=DENY&limit=50" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 按调用方 + 时间范围检索（ISO-8601）
+curl -s "http://localhost:8081/api/admin/governance/audit?caller=svc-payment&from=2026-09-01T00:00:00Z&to=2026-09-21T00:00:00Z" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+- 条件：`tool` / `caller` / `decision` / `tier` / `from` / `to` / `limit`（全可空，AND 语义）；
+- `limit` 自动 clamp 到 [1, 1000]；时间格式 ISO-8601（如 `2026-09-01T00:00:00Z`）。
+
+### 10.2 CSV 导出（SIEM / Excel / 监管报送）
+
+```bash
+curl -s "http://localhost:8081/api/admin/governance/audit/export?tool=finance_transfer&limit=1000" \
+  -H "Authorization: Bearer $TOKEN" > audit-finance.csv
+```
+
+- RFC 4180 + UTF-8 BOM（Excel 直接打开中文不乱码）；
+- 字段含逗号/引号/换行时自动转义（防 CSV 注入）；
+- 列：timestamp, tool, tier, caller, decision, approvalId, message；
+- 支持与检索相同的过滤参数。
+
+### 10.3 保留策略 TTL 清理（合规生命周期）
+
+```bash
+# 清理早于 90 天的历史审计事件（返回删除条数）
+curl -s -X POST "http://localhost:8081/api/admin/governance/audit/prune?retentionDays=90" \
+  -H "Authorization: Bearer $TOKEN"
+# {"retentionDays":90,"cutOff":"2026-06-23T13:00:00Z","deleted":1234}
+```
+
+- 方言无关 `DELETE WHERE ts < ?`（全参数绑定），返回删除条数并打日志；
+- 建议配合 cron 定期执行（如每月 1 日清理），满足 GDPR「数据最小化」与内部数据保留政策；
+- 物理清理属于运维动作，请先在测试环境验证保留期，再上生产 cron。
+
+*关联文档：[V1.30 发布说明](V1.30-release-notes.md) ｜ [市场雷达 09-21](market-research-2026-09-21.md)*

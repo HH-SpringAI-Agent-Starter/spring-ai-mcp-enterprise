@@ -163,6 +163,65 @@ public class JdbcGovernanceAuditSink implements McpGovernanceAuditSink {
         }
     }
 
+    @Override
+    public List<Map<String, Object>> search(Query query) {
+        // V1.30: 多条件 WHERE（全参数绑定、方言无关），按时间倒序后内存截断
+        java.util.List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM ").append(table).append(" WHERE 1=1");
+        if (query.tool() != null && !query.tool().isBlank()) {
+            sql.append(" AND tool = ?");
+            params.add(query.tool());
+        }
+        if (query.caller() != null && !query.caller().isBlank()) {
+            sql.append(" AND caller = ?");
+            params.add(query.caller());
+        }
+        if (query.decision() != null && !query.decision().isBlank()) {
+            sql.append(" AND decision = ?");
+            params.add(query.decision());
+        }
+        if (query.tier() != null && !query.tier().isBlank()) {
+            sql.append(" AND tier = ?");
+            params.add(query.tier());
+        }
+        if (query.from() != null) {
+            sql.append(" AND ts >= ?");
+            params.add(query.from().toEpochMilli());
+        }
+        if (query.to() != null) {
+            sql.append(" AND ts <= ?");
+            params.add(query.to().toEpochMilli());
+        }
+        sql.append(" ORDER BY ts DESC, seq DESC");
+        try {
+            List<Map<String, Object>> rows = jdbc.query(sql.toString(), MAPPER, params.toArray());
+            if (rows == null || rows.isEmpty()) {
+                return new ArrayList<>();
+            }
+            int n = query.limit();
+            return rows.size() <= n ? rows : new ArrayList<>(rows.subList(0, n));
+        } catch (Exception e) {
+            log.warn("🔎 [V1.30] audit search query failed: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public int deleteBefore(java.time.Instant cutOff) {
+        // V1.30: 合规保留策略——物理清理早于截止点的历史事件（方言无关 DELETE WHERE）
+        if (cutOff == null) {
+            return 0;
+        }
+        try {
+            int deleted = jdbc.update("DELETE FROM " + table + " WHERE ts < ?", cutOff.toEpochMilli());
+            log.info("🧹 [V1.30] audit retention purge: deleted {} events before {}", deleted, cutOff);
+            return deleted;
+        } catch (Exception e) {
+            log.warn("🧹 [V1.30] audit retention purge failed: {}", e.getMessage());
+            return 0;
+        }
+    }
+
     /** 审计事件总数（管理面板用）。 */
     public long count() {
         try {

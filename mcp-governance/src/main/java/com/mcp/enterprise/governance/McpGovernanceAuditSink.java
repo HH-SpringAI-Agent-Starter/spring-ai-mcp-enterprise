@@ -20,6 +20,28 @@ public interface McpGovernanceAuditSink {
     List<Map<String, Object>> recent(int limit);
 
     /**
+     * V1.30 多条件检索审计事件（按时间倒序，最多 query.limit() 条）。
+     * 全部条件为空时等价于 recent(limit)，供 SIEM/取证/管理面板过滤查询。
+     */
+    List<Map<String, Object>> search(Query query);
+
+    /**
+     * V1.30 保留策略：删除所有早于 cutOff 的事件（合规 TTL 清理）。
+     *
+     * @return 删除的事件数；0 = 无删除或实现不支持
+     */
+    int deleteBefore(java.time.Instant cutOff);
+
+    /** V1.30 审计检索条件（所有字段可 null/blank = 不过滤）。 */
+    record Query(String tool, String caller, String decision, String tier,
+                 java.time.Instant from, java.time.Instant to, int limit) {
+
+        public Query {
+            limit = limit <= 0 ? 50 : Math.min(limit, 1000);
+        }
+    }
+
+    /**
      * 治理审计事件。{@code arguments} 已在过滤器中脱敏。
      */
     record Event(Instant timestamp, String tool, String tier, String caller, String decision,

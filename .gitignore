@@ -74,3 +74,11 @@ _push_*.ps1
 _verify_*.ps1
 _commit_msg_*.txt
 _v1*_row.txt
+
+_v129_*.py
+
+_fix_*.py
+_chk*.txt
+_zhout.txt
+_zhcheck.txt
+_err.txt

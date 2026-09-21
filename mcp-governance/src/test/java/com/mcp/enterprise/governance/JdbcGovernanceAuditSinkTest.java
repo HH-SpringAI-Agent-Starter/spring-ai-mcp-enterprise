@@ -141,4 +141,80 @@ class JdbcGovernanceAuditSinkTest {
         sink.record(event("ok_tool", "ALLOW", "T2", Map.of()));
         assertEquals(1, sink.count());
     }
+
+    // ===== V1.30: search + retention purge =====
+
+    @Test
+    void searchFiltersByToolAndDecision() {
+        sink.record(event("finance_transfer", "APPROVAL_REQUIRED", "T4", Map.of("amount", 100)));
+        sink.record(event("user_query", "ALLOW", "T1", Map.of()));
+        sink.record(event("finance_transfer", "ALLOW", "T4", Map.of("amount", 50)));
+
+        List<Map<String, Object>> hits = sink.search(new McpGovernanceAuditSink.Query(
+                "finance_transfer", null, "ALLOW", null, null, null, 50));
+        assertEquals(1, hits.size());
+        assertEquals("finance_transfer", hits.get(0).get("tool"));
+        assertEquals("ALLOW", hits.get(0).get("decision"));
+    }
+
+    @Test
+    void searchFiltersByCallerAndTimeRange() {
+        sink.record(event("tool_a", "ALLOW", "T2", Map.of()));
+        sink.record(event("tool_b", "DENY", "T2", Map.of()));
+
+        java.time.Instant from = java.time.Instant.now().minusSeconds(60);
+        java.time.Instant to = java.time.Instant.now().plusSeconds(60);
+        List<Map<String, Object>> hits = sink.search(new McpGovernanceAuditSink.Query(
+                null, "caller-a", null, null, from, to, 50));
+        assertEquals(2, hits.size());
+
+        java.time.Instant past = java.time.Instant.now().minusSeconds(3600);
+        List<Map<String, Object>> none = sink.search(new McpGovernanceAuditSink.Query(
+                null, "caller-a", null, null, null, past, 50));
+        assertTrue(none.isEmpty());
+    }
+
+    @Test
+    void searchEmptyQueryEqualsRecent() {
+        for (int i = 0; i < 5; i++) {
+            sink.record(event("tool_" + i, "ALLOW", "T2", Map.of()));
+        }
+        List<Map<String, Object>> all = sink.search(new McpGovernanceAuditSink.Query(
+                null, null, null, null, null, null, 10));
+        assertEquals(5, all.size());
+        assertEquals(5, sink.recent(10).size());
+    }
+
+    @Test
+    void searchLimitCapsAt1000() {
+        for (int i = 0; i < 20; i++) {
+            sink.record(event("tool_" + i, "ALLOW", "T2", Map.of()));
+        }
+        List<Map<String, Object>> hits = sink.search(new McpGovernanceAuditSink.Query(
+                null, null, null, null, null, null, 99999));
+        assertEquals(20, hits.size());
+    }
+
+    @Test
+    void deleteBeforePurgesOldEventsOnly() {
+        java.time.Instant old = java.time.Instant.now().minusSeconds(86400);
+        sink.record(new McpGovernanceAuditSink.Event(old, "old_tool", "T2", "caller-a",
+                "ALLOW", null, Map.of(), "old event"));
+        sink.record(event("fresh_tool", "ALLOW", "T2", Map.of()));
+
+        int deleted = sink.deleteBefore(java.time.Instant.now().minusSeconds(3600));
+        assertEquals(1, deleted);
+
+        List<Map<String, Object>> remaining = sink.search(new McpGovernanceAuditSink.Query(
+                null, null, null, null, null, null, 10));
+        assertEquals(1, remaining.size());
+        assertEquals("fresh_tool", remaining.get(0).get("tool"));
+    }
+
+    @Test
+    void deleteBeforeNullIsNoop() {
+        sink.record(event("a", "ALLOW", "T2", Map.of()));
+        assertEquals(0, sink.deleteBefore(null));
+        assertEquals(1, sink.count());
+    }
 }
