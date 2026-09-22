@@ -98,6 +98,11 @@ public class InMemoryGovernanceAuditSink implements McpGovernanceAuditSink {
         if (q.to() != null && (e.timestamp() == null || e.timestamp().isAfter(q.to()))) {
             return false;
         }
+        // V1.31: traceId 过滤（审计事件与调用链关联后可按 trace 回溯）
+        if (q.traceId() != null && !q.traceId().isBlank()
+                && !q.traceId().equalsIgnoreCase(e.traceId())) {
+            return false;
+        }
         return true;
     }
 

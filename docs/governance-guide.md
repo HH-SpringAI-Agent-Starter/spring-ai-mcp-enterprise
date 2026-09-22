@@ -373,3 +373,101 @@ curl -s -X POST "http://localhost:8081/api/admin/governance/audit/prune?retentio
 - 物理清理属于运维动作，请先在测试环境验证保留期，再上生产 cron。
 
 *关联文档：[V1.30 发布说明](V1.30-release-notes.md) ｜ [市场雷达 09-21](market-research-2026-09-21.md)*
+
+
+## 11. 审计 × 链路追踪关联（V1.31：traceparent / traceId）
+
+### 11.1 解决什么问题
+
+V1.26→V1.30 审计链路已闭环「发生了什么 → 存在哪 → 怎么查 → 留多久」，但每个审计事件与业务调用链（trace）彼此孤立：
+事故复盘时，安全团队看到一条 `DENY` 审计，却无法秒级回答「这条调用从哪个 Agent 发起？同一个 trace 里还调了哪些工具？」。
+
+V1.31 让治理审计事件携带 **OpenTelemetry 标准的 W3C traceparent** 上下文（`traceId` + `spanId`），
+一次工具调用从 Agent 下发 → 网关 → 治理判定 → 落库，全程可追踪：
+
+```
+Agent ──traceparent: 00-4bf92f…4736-00f067…02b7-01──▶ MCP Server
+                                                    │
+                                        ┌───────────▼───────────┐
+                                        │ McpGovernanceFilter   │
+                                        │ 解析 traceparent      │
+                                        │ traceId=4bf92f…4736   │
+                                        │ spanId=00f067…02b7    │
+                                        └───────────┬───────────┘
+                                        auditSink.record(Event(…, traceId, spanId))
+                                                    │
+                                        ┌───────────▼───────────┐
+                                        │ mcp_governance_audit  │
+                                        │ trace_id / span_id 列 │
+                                        └───────────────────────┘
+```
+
+### 11.2 兼容策略（TraceContext，零外部依赖）
+
+`TraceContext.parse(...)` 自顶向下取第一个可用值：
+
+| 优先级 | 来源 | 说明 |
+|--------|------|------|
+| 1 | W3C `traceparent` 请求头 | 标准格式 `version-traceId-spanId-flags`，与 OpenTelemetry / Micrometer Tracing / 任意 APM 互通 |
+| 2 | `X-Request-Id` 请求头 | 网关 / 负载均衡常见透传头，直接作为 traceId |
+| 3 | SLF4J MDC `traceId` | 项目已接入 micrometer-tracing 时自动生效，**无需任何改造** |
+| 4 | UUID 兜底 | 保证每条审计事件永远可被追踪（32 位 hex） |
+
+> 实现刻意**不引入** micrometer-tracing 依赖，mcp-governance 保持零外部追踪依赖；
+> 若业务项目已接入 Spring Boot 3.4 Tracing，其自动写入 MDC 的 traceId/spanId 会被自动识别。
+
+### 11.3 表结构变更（V1.31）
+
+`mcp_governance_audit` 新增两列（方言无关，`initSchema()` 幂等；老表自动 `ALTER TABLE ADD COLUMN` 升级，失败则忽略保持兼容）：
+
+```sql
+trace_id VARCHAR(32)   -- W3C trace-id（32 位十六进制）
+span_id  VARCHAR(16)   -- W3C parent span-id（16 位十六进制，可能为 null）
+```
+
+### 11.4 使用方式
+
+客户端（Agent / 网关）透传标准头即可，无需改服务端配置：
+
+```bash
+curl -X POST http://localhost:8081/api/mcp/v2/message \
+  -H "Authorization: Bearer $MCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"db_query","arguments":{...}}}'
+```
+
+按 traceId 回溯一次调用链上的所有治理判定：
+
+```bash
+# 检索（V1.31 新增 traceId 参数）
+curl "http://localhost:8081/api/admin/governance/audit?traceId=4bf92f3577b34da6a3ce929d0e0e4736"
+
+# 响应示例
+{"count":2,"events":[
+  {"timestamp":"2026-09-22T13:30:00Z","tool":"db_query","tier":"T2","caller":"anonymous",
+   "decision":"ALLOW","traceId":"4bf92f3577b34da6a3ce929d0e0e4736",
+   "spanId":"00f067aa0ba902b7","arguments":{...}},
+  {"timestamp":"2026-09-22T13:30:01Z","tool":"finance_transfer","tier":"T4","caller":"anonymous",
+   "decision":"DENY","traceId":"4bf92f3577b34da6a3ce929d0e0e4736", ...}
+]}
+
+# CSV 导出同样支持 traceId 过滤（新增 traceId 列）
+curl -H "Authorization: Bearer $MCP_ADMIN_KEY" \
+  "http://localhost:8081/api/admin/governance/audit/export?traceId=4bf92f3577b34da6a3ce929d0e0e4736" \
+  -o audit-trace.csv
+```
+
+### 11.5 事故复盘三步走（审计 ↔ trace 双向打通）
+
+1. **从审计到 trace**：`GET /api/admin/governance/audit?traceId=xxx` 拿到该调用链全部治理判定（谁能从 ALLOW 变成 DENY 一目了然）；
+2. **从 trace 到审计（反向）**：在 Grafana/Tempo/Jaeger 中看到异常 span 后，用其 `traceId` 反查同一条链上的治理事件与脱敏参数；
+3. **批量导出**：CSV 携带 traceId 列，直接喂给 SIEM（如 Splunk/Sentinel）做关联分析。
+
+### 11.6 与现有能力的关系
+
+| V1.26→V1.30 | V1.31 |
+|---|---|
+| 审计事件各自孤立 | 审计事件挂到全局 trace |
+| 复盘靠时间戳±模糊匹配 | 复盘靠 traceId 精确回溯 |
+| 日志与审计两套体系 | 日志（业务）、审计（治理）共享同一 traceId |

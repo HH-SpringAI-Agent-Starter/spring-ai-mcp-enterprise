@@ -84,6 +84,13 @@ public class JdbcGovernanceAuditSink implements McpGovernanceAuditSink {
         m.put("approvalId", rs.getString("approval_id"));
         m.put("arguments", fromJson(rs.getString("arguments")));
         m.put("message", rs.getString("message"));
+        // V1.31: trace 关联字段（老表无此列时 getString 返回 null，天然兼容）
+        try {
+            m.put("traceId", rs.getString("trace_id"));
+            m.put("spanId", rs.getString("span_id"));
+        } catch (SQLException ignored) {
+            // 老版本表结构无 trace 列：忽略
+        }
         return m;
     };
 
@@ -117,7 +124,20 @@ public class JdbcGovernanceAuditSink implements McpGovernanceAuditSink {
                 "decision VARCHAR(32) NOT NULL, " +
                 "approval_id VARCHAR(64), " +
                 "arguments VARCHAR(4000), " +
-                "message VARCHAR(1024))");
+                "message VARCHAR(1024), " +
+                "trace_id VARCHAR(32), " +
+                "span_id VARCHAR(16))");
+        // V1.31: 旧表升级——新列缺失时物理补列（方言无关，失败忽略）
+        try {
+            jdbc.execute("ALTER TABLE " + table + " ADD COLUMN trace_id VARCHAR(32)");
+        } catch (Exception ignored) {
+            // 列已存在或数据库不支持 ADD COLUMN：忽略
+        }
+        try {
+            jdbc.execute("ALTER TABLE " + table + " ADD COLUMN span_id VARCHAR(16)");
+        } catch (Exception ignored) {
+            // 同上
+        }
         log.info("🛡 [V1.29] Governance Audit JDBC store ready (table={})", table);
     }
 
@@ -131,9 +151,10 @@ public class JdbcGovernanceAuditSink implements McpGovernanceAuditSink {
         String id = "evt-" + ts + "-" + seq;
         try {
             jdbc.update("INSERT INTO " + table + " (id, seq, ts, tool, tier, caller, decision, " +
-                            "approval_id, arguments, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            "approval_id, arguments, message, trace_id, span_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     id, seq, ts, event.tool(), event.tier(), event.caller(), event.decision(),
-                    event.approvalId(), toJson(event.arguments()), truncate(event.message(), 1024));
+                    event.approvalId(), toJson(event.arguments()), truncate(event.message(), 1024),
+                    event.traceId(), event.spanId());
         } catch (Exception e) {
             // fail-soft: 审计是观察者，单条失败记录 WARN 绝不打挂业务
             log.warn("🛡 [V1.29] audit event persist failed (tool={}, decision={}): {}",
@@ -191,6 +212,11 @@ public class JdbcGovernanceAuditSink implements McpGovernanceAuditSink {
         if (query.to() != null) {
             sql.append(" AND ts <= ?");
             params.add(query.to().toEpochMilli());
+        }
+        // V1.31: 按 traceId 过滤（审计事件与调用链关联后可按 trace 回溯）
+        if (query.traceId() != null && !query.traceId().isBlank()) {
+            sql.append(" AND trace_id = ?");
+            params.add(query.traceId());
         }
         sql.append(" ORDER BY ts DESC, seq DESC");
         try {

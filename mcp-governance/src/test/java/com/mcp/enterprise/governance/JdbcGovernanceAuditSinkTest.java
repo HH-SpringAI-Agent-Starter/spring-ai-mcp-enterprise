@@ -217,4 +217,64 @@ class JdbcGovernanceAuditSinkTest {
         assertEquals(0, sink.deleteBefore(null));
         assertEquals(1, sink.count());
     }
+
+    // ===== V1.31: trace 关联（OpenTelemetry W3C traceparent）=====
+
+    private McpGovernanceAuditSink.Event tracedEvent(String tool, String traceId, String spanId) {
+        return new McpGovernanceAuditSink.Event(Instant.now(), tool, "T2", "caller-a",
+                "ALLOW", null, Map.of(), "traced event", traceId, spanId);
+    }
+
+    @Test
+    void traceColumnsPersistRoundTrip() {
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        String spanId = "00f067aa0ba902b7";
+        sink.record(tracedEvent("db_query", traceId, spanId));
+
+        List<Map<String, Object>> recent = sink.recent(5);
+        assertEquals(1, recent.size());
+        assertEquals(traceId, recent.get(0).get("traceId"));
+        assertEquals(spanId, recent.get(0).get("spanId"));
+    }
+
+    @Test
+    void searchFiltersByTraceId() {
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        sink.record(tracedEvent("db_query", traceId, "00f067aa0ba902b7"));
+        sink.record(tracedEvent("other_tool", "8b1d4f2a9c6e3d7f1a2b3c4d5e6f70819", null));
+
+        List<Map<String, Object>> hits = sink.search(new McpGovernanceAuditSink.Query(
+                null, null, null, null, null, null, 50, traceId));
+        assertEquals(1, hits.size());
+        assertEquals("db_query", hits.get(0).get("tool"));
+    }
+
+    @Test
+    void searchTraceIdAndToolCombined() {
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        sink.record(tracedEvent("db_query", traceId, null));
+        sink.record(tracedEvent("http_call", traceId, null));
+
+        List<Map<String, Object>> hits = sink.search(new McpGovernanceAuditSink.Query(
+                "db_query", null, null, null, null, null, 50, traceId));
+        assertEquals(1, hits.size());
+        assertEquals("db_query", hits.get(0).get("tool"));
+    }
+
+    @Test
+    void upgradeFromOldSchemaAddsTraceColumns() {
+        // 模拟 V1.30 老表：无 trace 列
+        jdbc.execute("CREATE TABLE legacy_audit (" +
+                "id VARCHAR(64) NOT NULL PRIMARY KEY, seq BIGINT NOT NULL, ts BIGINT NOT NULL, " +
+                "tool VARCHAR(256) NOT NULL, tier VARCHAR(16), caller VARCHAR(256), " +
+                "decision VARCHAR(32) NOT NULL, approval_id VARCHAR(64), " +
+                "arguments VARCHAR(4000), message VARCHAR(1024))");
+        JdbcGovernanceAuditSink legacy = new JdbcGovernanceAuditSink(jdbc, "legacy_audit", false);
+        legacy.initSchema(); // 应幂等补列不报错
+
+        legacy.record(tracedEvent("db_query", "4bf92f3577b34da6a3ce929d0e0e4736", null));
+        List<Map<String, Object>> rows = legacy.recent(5);
+        assertEquals(1, rows.size());
+        assertEquals("4bf92f3577b34da6a3ce929d0e0e4736", rows.get(0).get("traceId"));
+    }
 }

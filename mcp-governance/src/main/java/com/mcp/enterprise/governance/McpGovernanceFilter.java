@@ -98,12 +98,22 @@ public class McpGovernanceFilter extends OncePerRequestFilter {
         String caller = resolveCaller(request);
         String approvalId = request.getHeader(properties.getApprovalHeader());
 
+        // V1.31: 解析 W3C traceparent / X-Request-Id / MDC，审计事件与调用链关联
+        TraceContext.Parsed trace = TraceContext.parse(
+                request.getHeader(TraceContext.HEADER_TRACEPARENT),
+                request.getHeader(TraceContext.HEADER_X_REQUEST_ID),
+                org.slf4j.MDC.get("traceId"));
+        request.setAttribute(TraceContext.ATTR_TRACE_ID, trace.traceId());
+        if (trace.spanId() != null) {
+            request.setAttribute(TraceContext.ATTR_SPAN_ID, trace.spanId());
+        }
+
         GovernanceDecision decision = guard.evaluate(toolName, caller, arguments, approvalId);
 
         auditSink.record(new McpGovernanceAuditSink.Event(Instant.now(), toolName,
                 decision.tier() == null ? null : decision.tier().getCode(), caller,
                 decision.outcome().name(), decision.approvalId(),
-                redactor.redactMap(arguments), decision.message()));
+                redactor.redactMap(arguments), decision.message(), trace.traceId(), trace.spanId()));
 
         switch (decision.outcome()) {
             case ALLOW -> {

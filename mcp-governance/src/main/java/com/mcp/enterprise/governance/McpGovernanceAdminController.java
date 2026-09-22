@@ -105,10 +105,11 @@ public class McpGovernanceAdminController {
                                      @RequestParam(required = false) String decision,
                                      @RequestParam(required = false) String tier,
                                      @RequestParam(required = false) String from,
-                                     @RequestParam(required = false) String to) {
-        // V1.30: 多条件过滤检索（SIEM/取证/管理面板）
+                                     @RequestParam(required = false) String to,
+                                     @RequestParam(required = false) String traceId) {
+        // V1.30: 多条件过滤检索（SIEM/取证/管理面板）; V1.31: 支持按 traceId 回溯调用链
         McpGovernanceAuditSink.Query q = new McpGovernanceAuditSink.Query(
-                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit);
+                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit, traceId);
         List<Map<String, Object>> events = auditSink.search(q);
         return Map.of("count", events.size(), "events", events);
     }
@@ -120,14 +121,15 @@ public class McpGovernanceAdminController {
                             @RequestParam(required = false) String decision,
                             @RequestParam(required = false) String tier,
                             @RequestParam(required = false) String from,
-                            @RequestParam(required = false) String to) {
+                            @RequestParam(required = false) String to,
+                            @RequestParam(required = false) String traceId) {
         // V1.30: CSV 导出（SIEM 导入 / Excel 取证 / 监管报送）；字段含逗号/引号/换行时按 RFC 4180 转义
         McpGovernanceAuditSink.Query q = new McpGovernanceAuditSink.Query(
-                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit);
+                tool, caller, decision, tier, parseInstant(from), parseInstant(to), limit, traceId);
         List<Map<String, Object>> events = auditSink.search(q);
         StringBuilder sb = new StringBuilder();
         sb.append("\uFEFF"); // UTF-8 BOM，Excel 直接打开中文不乱码
-        sb.append("timestamp,tool,tier,caller,decision,approvalId,message\r\n");
+        sb.append("timestamp,tool,tier,caller,decision,approvalId,traceId,message\r\n");
         for (Map<String, Object> e : events) {
             sb.append(csv(e.get("timestamp"))).append(',')
               .append(csv(e.get("tool"))).append(',')
@@ -135,6 +137,7 @@ public class McpGovernanceAdminController {
               .append(csv(e.get("caller"))).append(',')
               .append(csv(e.get("decision"))).append(',')
               .append(csv(e.get("approvalId"))).append(',')
+              .append(csv(e.get("traceId"))).append(',')
               .append(csv(e.get("message"))).append("\r\n");
         }
         return sb.toString();

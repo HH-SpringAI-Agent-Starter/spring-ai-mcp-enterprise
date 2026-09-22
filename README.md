@@ -211,6 +211,7 @@ mcp:
 - **灰度优先**：出厂 `enforce=false` 只登记不拦截，验证分级准确后一键 `enforce=true` 强制；
 - **审批状态持久化（V1.28）**：`approval.store=jdbc` 把审批队列落到单表（方言无关：H2/MySQL/PG/SQL Server），多实例部署下审批-消费跨副本可见，重启不丢审批记录（审计合规）；无数据源自动回退内存；
 - **审计事件持久化（V1.29）**：`audit.store=jdbc` 把每次治理判定事件（工具/等级/调用方/判定/脱敏后参数）落到单表 `mcp_governance_audit`（方言无关），重启/滚动发布不丢审计轨迹，多实例有统一全局视图，SQL 直接查（合规取证/SIEM 对接）；只写不删防篡改，fail-soft 不挂业务；管理面板 `/api/admin/governance/audit` 零改动读取同一张表；
+- **审计 × 链路追踪（V1.31）**：治理过滤器解析 **W3C traceparent**（兼容 X-Request-Id / MDC traceId / UUID 兜底，零外部依赖）→ 每条审计事件携带 `traceId`/`spanId`，检索与 CSV 导出支持按 traceId 回溯一次调用链的全部治理判定；老表自动 `ALTER TABLE ADD COLUMN` 升级；与 OpenTelemetry / Grafana Tempo / Jaeger 双向打通；
 - **管理 REST API**：`/api/admin/governance/approvals·stats·audit·policy`；审计出口 SPI 可换 Kafka/JDBC。
 
 ```yaml
@@ -421,7 +422,7 @@ docker compose --profile full up -d
 | **`mcp-integrations/mcp-a2a`** | 🌐 **A2A 双协议网关（V1.15）**：MCP 工具 → A2A Agent Card/Skill，JSON-RPC 分派（message/send、task/send/get/cancel），任意 A2A Agent 可直接调用企业 MCP 工具 |
 | **`mcp-springai-tools`** | 🎯 **Spring AI 工具桥接（V1.23）**：@Tool / ToolCallback / ToolCallbackProvider 三类工具源自动注册为企业 MCP 工具（自动继承 RBAC / 限流 / 审计 / 工具级 Scope / 健康检查），业务代码零改动，15 测试尽绿 |
 | **`mcp-gateway`** | 🌐 **MCP 联邦网关（V1.25）**：聚合任意多个下游 MCP Server（Streamable HTTP / JSON-RPC，零依赖客户端，兼容单 JSON 与 SSE 响应）——联邦工具自动命名空间隔离（`<prefix>__<tool>`）+ 继承 RBAC/限流/审计/Scope + 启动自动同步 + 失败保留/禁用移除 + 管理 REST API（/api/admin/gateway/upstreams·sync·tools·health），22 测试全绿，命中 Sumo Logic「联邦式 MCP 托管」/MintMCP 网关赛道需求 |
-| **`mcp-governance`** | 🛡 **MCP 治理（V1.26）**：人类在环人工审批（HITL）——T3/T4 高风险工具调用先入审批队列，批准后颁发一次性令牌（`X-MCP-Approval-Id`）防重放；风险分级 T0-T4（OWASP MCP Governance 对齐：显式 tool-tiers > 分类语义 > 关键词 > 默认）+ deny-tiers 硬闸门 + Fail-closed + 敏感数据脱敏（邮箱/身份证/银行卡/手机号/密钥，递归 Map）+ 审计事件（V1.29 JDBC 落库可取证）+ 管理 REST API（/api/admin/governance/*），43 测试全绿，命中 iMagic $40K+「HITL checkpoint」/GSWE 采购「写操作审批+审计」验收项 |
+| **`mcp-governance`** | 🛡 **MCP 治理（V1.26）**：人类在环人工审批（HITL）——T3/T4 高风险工具调用先入审批队列，批准后颁发一次性令牌（`X-MCP-Approval-Id`）防重放；风险分级 T0-T4（OWASP MCP Governance 对齐：显式 tool-tiers > 分类语义 > 关键词 > 默认）+ deny-tiers 硬闸门 + Fail-closed + 敏感数据脱敏（邮箱/身份证/银行卡/手机号/密钥，递归 Map）+ 审计事件（V1.29 JDBC 落库可取证 + V1.30 检索/CSV 导出/TTL 保留 + **V1.31 traceId/spanId 链路追踪关联：W3C traceparent 解析（兼容 X-Request-Id/MDC/UUID）零依赖，检索与导出可按 traceId 回溯一次调用链全部治理判定，老表自动 ALTER 升级**）+ 管理 REST API（/api/admin/governance/*），62 测试全绿，命中 iMagic $40K+「HITL checkpoint」/GSWE 采购「写操作审批+审计」验收项 |
 | `mcp-examples/mcp-client-spring-ai` | Spring AI MCP Client 示例 |
 
 ---
@@ -563,6 +564,7 @@ docker compose --profile full up -d
 | **V1.28** | **治理审批落库（mcp-governance）：ApprovalStore JDBC 化——`approval.store=jdbc` 单表 `mcp_approval_requests`（方言无关 H2/MySQL/PG/SQL Server），多实例审批-消费跨副本可见、重启不丢审批记录（审计合规）；一次性令牌防重放从单机承诺升级为集群承诺 + 无数据源自回退内存（可用性优先）；governance 35 测试全绿 + 治理指南新增持久化章节 + 市场雷达 09-19（NTT DATA Java+MCP+OAuth2 近期最匹配/CloudIngest 保险批量合同/Upwork MCP Expert $60-120/h×50 人）** | ✅ 已完成 |
 | **V1.29** | **治理审计落库（mcp-governance）：AuditSink JDBC 化——`audit.store=jdbc` 单表 `mcp_governance_audit`（方言无关），重启/滚动发布不丢审计轨迹、多实例全局可查（合规取证）；只写不删防篡改 + fail-soft 不挂业务 + 近实时双写（落库+SLF4J）+ 值级截断保证合法 JSON；管理 REST API 零改动；governance 43 测试全绿（新增 8 个 H2 集成测试）、全仓 21 模块构建通过；治理指南新增取证章节 + 掘金CSDN稿 + 市场雷达 09-20（OneSeven Java+Spring MCP $4-5K/月/沃尔玛中国 AI·MCP 网关 ¥30-55K/箱箱共用 20-30K·13薪）** | ✅ 已完成 |
 | **V1.30** | **治理审计可运营化（mcp-governance）：审计多条件检索（search(Query)：tool/caller/decision/tier/from/to 全字段可空，JDBC 动态 WHERE 全参数绑定方言无关）+ CSV 导出（/audit/export：RFC 4180 + UTF-8 BOM + 注入转义，SIEM/Excel/监管报送）+ 保留策略 TTL（/audit/prune：deleteBefore 方言无关物理清理，GDPR 数据最小化，可配 cron）+ 管理 REST API 升级（旧调用兼容）；governance 49 测试全绿（新增 6 个）、全仓 21 模块构建通过；治理指南新增检索/导出/保留章节 + 掘金CSDN稿 + 市场雷达 09-21（中国移动校招 MCP Tool Server 岗/Singtel MCP governance 岗/Descope $88M MCP 安全岗/micro1 $60-120/hr/沃尔玛中国延续至 10-27）** | ✅ 已完成 |
+| **V1.31** | **审计 × 链路追踪关联（mcp-governance）：TraceContext 解析 W3C traceparent（四级降级：traceparent→X-Request-Id→MDC traceId→UUID 兜底，零外部依赖，已接入 micrometer-tracing 自动识别）+ 每条审计事件携带 traceId/spanId + JDBC 表新增 trace_id/span_id 列（老表自动 ALTER TABLE ADD COLUMN 升级）+ 检索/CSV 导出按 traceId 回溯一次调用链全部治理判定（事故复盘秒级定位）；governance 62 测试全绿（新增 13 个）、全仓 21 模块构建通过；治理指南第 11 章 + V1.31 发布说明 + 掘金CSDN稿 + 市场雷达 09-22（OneSeven Java+MCP $4-5K/月要求 GitHub 作品/CoreLogic $129-160K 年 MCP Servers/Intellias OTel×MCP 硬技能/FlairMinds 离岸扩招/Sigma FinTech Principal MCP 平台）** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
