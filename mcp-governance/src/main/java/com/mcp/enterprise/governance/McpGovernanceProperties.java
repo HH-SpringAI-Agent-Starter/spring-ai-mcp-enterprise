@@ -42,6 +42,13 @@ import java.util.Map;
  *         store: memory               # V1.29: memory | jdbc（jdbc 需要数据源，审计事件落库可查询）
  *         table: mcp_governance_audit # V1.29: JDBC 表名（store=jdbc 时生效）
  *         init-schema: true           # V1.29: 启动时幂等建表（store=jdbc 时生效）
+ *         # V1.32: store=http 时审计事件近乎实时批量推送到 SIEM/事件总线（零外部依赖）
+ *         http-url: http://localhost:8088/services/collector/event   # Splunk HEC / Kafka REST Proxy / webhook
+ *         http-batch-size: 50
+ *         http-flush-interval-ms: 5000
+ *         http-timeout-ms: 3000
+ *         http-headers:               # 可选附加请求头
+ *           Authorization: Splunk abc123
  * </pre>
  */
 @ConfigurationProperties(prefix = "mcp.enterprise.governance")
@@ -196,6 +203,21 @@ public class McpGovernanceProperties {
         /** V1.29: 启动时幂等建表（store=jdbc 时生效） */
         private boolean initSchema = true;
 
+        /** V1.32: HTTP/SIEM 导出目标 URL（store=http 时生效，如 Splunk HEC / Kafka REST Proxy / webhook） */
+        private String httpUrl;
+
+        /** V1.32: 批量发送大小（攒够即发，默认 50 条/批） */
+        private int httpBatchSize = 50;
+
+        /** V1.32: 定时 flush 间隔 ms（默认 5000） */
+        private long httpFlushIntervalMs = 5000;
+
+        /** V1.32: HTTP 超时 ms（默认 3000） */
+        private long httpTimeoutMs = 3000;
+
+        /** V1.32: 附加请求头（如 Authorization: Splunk xxx），可空 */
+        private Map<String, String> httpHeaders = new LinkedHashMap<>();
+
         public int getMaxEvents() { return maxEvents; }
         public void setMaxEvents(int maxEvents) { this.maxEvents = maxEvents; }
         public boolean isLogToSlf4j() { return logToSlf4j; }
@@ -206,5 +228,15 @@ public class McpGovernanceProperties {
         public void setTable(String table) { this.table = table; }
         public boolean isInitSchema() { return initSchema; }
         public void setInitSchema(boolean initSchema) { this.initSchema = initSchema; }
+        public String getHttpUrl() { return httpUrl; }
+        public void setHttpUrl(String httpUrl) { this.httpUrl = httpUrl; }
+        public int getHttpBatchSize() { return httpBatchSize; }
+        public void setHttpBatchSize(int httpBatchSize) { this.httpBatchSize = httpBatchSize; }
+        public long getHttpFlushIntervalMs() { return httpFlushIntervalMs; }
+        public void setHttpFlushIntervalMs(long httpFlushIntervalMs) { this.httpFlushIntervalMs = httpFlushIntervalMs; }
+        public long getHttpTimeoutMs() { return httpTimeoutMs; }
+        public void setHttpTimeoutMs(long httpTimeoutMs) { this.httpTimeoutMs = httpTimeoutMs; }
+        public Map<String, String> getHttpHeaders() { return httpHeaders; }
+        public void setHttpHeaders(Map<String, String> httpHeaders) { this.httpHeaders = httpHeaders; }
     }
 }

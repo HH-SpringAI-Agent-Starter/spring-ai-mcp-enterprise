@@ -471,3 +471,79 @@ curl -H "Authorization: Bearer $MCP_ADMIN_KEY" \
 | 审计事件各自孤立 | 审计事件挂到全局 trace |
 | 复盘靠时间戳±模糊匹配 | 复盘靠 traceId 精确回溯 |
 | 日志与审计两套体系 | 日志（业务）、审计（治理）共享同一 traceId |
+
+
+## 12. 审计事件实时流导出（V1.32：audit.store=http → SIEM / Kafka / 事件总线）
+
+### 12.1 解决什么问题
+
+V1.29 落库解决了「审计可查」，但安全运营中心（SOC）要的是**事件发生时近乎实时**地收到治理判定，
+与 WAF/网关/APM 日志同管道分析（SIEM），而不是等审计员事后去数据库查。
+
+`HttpGovernanceAuditSink` 把治理审计事件**批量异步推送**到任意 HTTP 端点
+——Splunk HEC / Elasticsearch / Loki / Kafka REST Proxy / 企业 webhook 均可，**零外部依赖**（JDK HttpClient）。
+
+```
+┌────────────────┐   record(Event×N)   ┌──────────────────┐  POST /services/collector/event  ┌──────────┐
+│ McpGovernance  │ ──────────────────▶ │ HttpGovernance   │ ────────────────────────────────▶ │  SIEM    │
+│   Filter       │   攒批 + 定时 flush  │   AuditSink      │        批量 JSON 数组             │ Splunk/ES│
+└────────────────┘                     └──────────────────┘                                   │  Kafka   │
+                                                                                              └──────────┘
+```
+
+### 12.2 启用方式（application.yml）
+
+```yaml
+mcp:
+  enterprise:
+    governance:
+      audit:
+        store: http                     # memory（默认）| jdbc | http
+        log-to-slf4j: true              # 本地日志双写保留（运维 grep 兼容）
+        max-events: 2000                # 本地内存可查视图上限（recent/search 仍可用）
+        http-url: http://your-siem:8088/services/collector/event   # Splunk HEC 示例
+        http-batch-size: 50             # 攒够 50 条立即发一批
+        http-flush-interval-ms: 5000    # 未攒满也最多 5s 发一批（兜底）
+        http-timeout-ms: 3000           # 连接/请求超时
+        http-headers:                   # 可选附加请求头
+          Authorization: Splunk xxxxx-xxxx
+```
+
+> 指向 Kafka REST Proxy 时 `http-url` 填 `http://kafka-proxy:8082/topics/mcp-governance-audit` 即可，
+> 审计事件流进 topic 供流式告警/数仓消费——**无需引入 Kafka 客户端依赖**。
+
+### 12.3 行为语义
+
+- **攒批发送**：`record()` 攒够 `batch-size` 立即异步 POST（JSON 数组，每个元素含 timestamp/tool/tier/caller/decision/approvalId/arguments/message/traceId/spanId）；
+- **定时兜底**：未攒满时由守护线程按 `flush-interval-ms` 周期 flush，事件不会滞留；
+- **fail-soft**：发送失败仅 WARN + 事件保留本地队列重试（上限 `max-events×10` 防 OOM 丢新事件），**绝不抛异常打挂业务调用**；
+- **本地可查**：`recent/search/deleteBefore` 语义与内存实现一致（管理 API 零改动）；
+- **诊断指标**：`sentCount()` / `failedCount()` / `pendingCount()` 暴露给运维（可接 Actuator 自定义端点）；
+- **优雅关闭**：`close()` 触发最终 flush，停机尽量不丢积压。
+
+### 12.4 三种审计出口对比（V1.29→V1.32）
+
+| 维度 | memory（默认） | jdbc（V1.29） | http（V1.32） |
+|------|--------------|--------------|--------------|
+| 定位 | 本地最近 N 条 | 合规取证落库 | 实时 SIEM 流 |
+| 重启保留 | ✗ | ✓ | ✗（内存视图）/ 端点侧 ✓ |
+| 查询 API | ✓ | ✓（含检索/导出/清理） | ✓（内存视图） |
+| 典型场景 | 开发/单机 | 取证/审计员 | SOC 实时监控/告警 |
+| 可叠加 | - | - | 可组合：jdbc 落库 + 另配 http 实时推送 |
+
+> **生产推荐组合**：把 `McpGovernanceAuditSink` 换成「组合 Sink」（JDBC 落库 + HTTP 推送双写），
+> 既满足取证留痕，又满足 SOC 实时监控——两者通过同一 SPI 无侵入替换。
+
+### 12.5 快速验证
+
+```bash
+# 起一个本地接收端点（示例：nc 或任意 webhook 平台）
+nc -l 9090
+
+# 配置后启动应用，调用一次治理工具，观察收到的 JSON 数组：
+# [{"timestamp":"2026-09-28T13:30:00Z","tool":"finance_transfer","tier":"T4",
+#   "caller":"anonymous","decision":"DENY","approvalId":"apr-1",
+#   "message":"...","traceId":"4bf92f...","spanId":"00f0..."}]
+```
+
+*关联文档：[V1.32 发布说明](V1.32-release-notes.md) ｜ [市场雷达 09-28](market-research-2026-09-28.md)*

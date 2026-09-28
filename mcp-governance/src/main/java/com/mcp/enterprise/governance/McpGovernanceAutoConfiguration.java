@@ -114,6 +114,30 @@ public class McpGovernanceAutoConfiguration {
                     properties.getAudit().getTable());
             return sink;
         }
+        // V1.32: audit.store=http 且配置了 http-url 时启用 HTTP/SIEM 事件流导出
+        // （零外部依赖：JDK HttpClient 批量 POST 到 Splunk HEC / Kafka REST Proxy / 任意 webhook）
+        if ("http".equalsIgnoreCase(properties.getAudit().getStore())) {
+            String url = properties.getAudit().getHttpUrl();
+            if (url == null || url.isBlank()) {
+                log.warn("[V1.32] audit.store=http requested but audit.http-url is empty; "
+                        + "falling back to in-memory GovernanceAuditSink");
+                return new InMemoryGovernanceAuditSink(
+                        properties.getAudit().getMaxEvents(),
+                        properties.getAudit().isLogToSlf4j());
+            }
+            HttpGovernanceAuditSink sink = new HttpGovernanceAuditSink(
+                    url,
+                    properties.getAudit().getHttpHeaders(),
+                    properties.getAudit().getHttpBatchSize(),
+                    properties.getAudit().getHttpFlushIntervalMs(),
+                    properties.getAudit().getHttpTimeoutMs(),
+                    properties.getAudit().getMaxEvents(),
+                    properties.getAudit().isLogToSlf4j());
+            log.info("[V1.32] Governance Audit HTTP/SIEM export enabled (url={}, batch={}, flush={}ms)",
+                    url, properties.getAudit().getHttpBatchSize(),
+                    properties.getAudit().getHttpFlushIntervalMs());
+            return sink;
+        }
         return new InMemoryGovernanceAuditSink(
                 properties.getAudit().getMaxEvents(),
                 properties.getAudit().isLogToSlf4j());
