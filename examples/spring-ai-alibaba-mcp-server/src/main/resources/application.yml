@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: spring-ai-alibaba-mcp-server
+  ai:
+    # 通义千问 / DashScope（Spring AI Alibaba 1.0 GA）
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:}
+    # MCP Server 暴露配置（由 spring-ai-alibaba-starter-mcp 接管 transport）
+    mcp:
+      server:
+        name: order-mcp-server
+        version: 1.0.0
+        type: SYNC
+        # Streamable HTTP 端点（供下方 mcp-gateway 联邦接入）
+        # 默认路径 /mcp
+
+# ---- 挂到 Spring AI MCP Enterprise 联邦网关 / 注册中心 ----
+# 把本 Server 的 /mcp 端点作为 upstream 注册到 mcp-gateway，
+# 即可自动获得 RBAC / 审计 / HITL / 限流 / 命名空间隔离。
+# （此段仅为示意；真实部署在本框架 mcp-gateway 的 application.yml 中配置）
+mcp:
+  enterprise:
+    gateway:
+      upstreams:
+        - name: order          # 工具前缀 => order__getOrder / order__listOrders
+          url: http://localhost:8080/mcp
+          enabled: true
+
+server:
+  port: 8080

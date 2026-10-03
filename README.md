@@ -519,18 +519,20 @@ docker compose --profile full up -d
 
 > 本框架的定位不是玩具，而是直接对齐**大厂 JD 与央企/军工 MCP 招标**的生产级方案。
 
-### 📑 最新央企/军工 MCP 招标（可对标交付）
-- 🔥 **AI 网关、MCP 注册、多模态平台** — 中国航空工业集团西安飞行自动控制研究所（编号 **ZC26G280436**，09-29 发，10-20 截标，国产商业平台 + MCP 组件 + 2 台智算服务器）→ 直接对应本框架 `mcp-registry`(注册中心) + `mcp-gateway`(联邦网关) + `mcp-alibaba`(国产大模型兼容)。
+### 📑 最新央企/军工 MCP 招标（可对标交付，更新 10-03）
+- 🔥 **AI 网关、MCP 注册、多模态平台** — 中国航空工业集团西安飞行自动控制研究所（编号 **ZC26G280436**，10-20 截标，国产商业平台 + MCP 组件 + 2 台智算服务器）→ 对应 `mcp-registry` + `mcp-gateway` + `mcp-alibaba`。**投标技术方案模板** → [`docs/tender-proposal-ZC26G280436-2026-10-03.md`](docs/tender-proposal-ZC26G280436-2026-10-03.md)
+- 🔥 **油气生产管理多智能体架构（专题2：MCP 服务）** — 中石油·长庆油田（**130 万**，10-16 截标，需时序数据 MCP 服务业绩 + 中级职称负责人 + 开发 4 人）→ 对应 `mcp-registry` + `mcp-governance` + `mcp-tools/tool-database`。
 
-### 🏢 点名 MCP 的企业招聘（近 3 天）
-- **Bloomberg** Enterprise MCP（15 个 AI 客户端接入）｜ **Miro** 1600 万次 MCP 调用｜ **微软 M365 Work IQ**（上海，MCP 基础设施）｜ **Retool**（MCP servers/sub-agents）｜ **华为软件**（广州，JD 点名 MCP）。
+### 🏢 点名 MCP 的企业招聘 / 接单（近 3 天，10-01~10-03）
+- **freelancermap** MCP Expert（Java API Integration，Amsterdam，12 月合约费率可谈）｜ **Sumo Logic** Staff SWE·Core AI Platform（MCP & Agent Infra，Java/Scala/Go，8年+，MCP-first 联邦平台）｜ **OneSeven Tech** Senior Backend·MCP Infra（$4K-5K/月，拉美远程 US EST，Java+Spring Boot+WebFlux）｜ **hirist** Agentic AI（班加罗尔，MCP Servers）｜ **divi-t** Java Engineer with AI（美国远程，MCP servers）。
+- **Upwork 官方 MCP Server 已成接单基础设施**（2026-08-10 上线，`mcp.upwork.com`；Claude 一天可发 9 份提案，100-Connect 上限已于 10-09 移除）→ 把本项目 repo 当作品集，Skill Tag 对齐 MCP/Spring AI/Java/Agentic AI。
 
-### 💰 为什么 Java + Spring + AI 是 MCP 蓝海
-- 全球 MCP 服务器市场 **$142 亿（+38.5%）**，中国 **¥210 亿（18.7%）**；五巨头（Anthropic/OpenAI/Google/Microsoft/Amazon）MCP 支持已收敛完成。
-- **64% 企业把"安全治理"列为 MCP 头号采用障碍** → 本框架 `mcp-governance`（HITL/审计落库/实时流导出）正是破局点。
-- Java+AI 复合岗 3–5 年 **45K–75K**，比传统 Java 高 50–100%，供需比 0.85。
+### 💰 为什么 Java + Spring + AI 是 MCP 蓝海（叠加 Spring AI Alibaba 1.0 GA）
+- **Spring AI Alibaba 1.0 GA（2026-10）正式发布**：企业级 MCP = **Nacos MCP Registry + Higress AI 网关**，与本框架 `mcp-registry`+`mcp-gateway` **定位同款**；本框架补其最缺的**安全治理层**（RBAC/审计/HITL/限流/多租户）。GA 示例 → [`examples/spring-ai-alibaba-mcp-server/`](examples/spring-ai-alibaba-mcp-server/) ｜ SEO 稿 → [`docs/blog-java-mcp-spring-ai-alibaba-ga-2026-10-03.md`](docs/blog-java-mcp-spring-ai-alibaba-ga-2026-10-03.md)
+- 全球 MCP 服务器市场 **$142 亿（+38.5%）**，中国 **¥210 亿（18.7%）**；**64% 企业把"安全治理"列为 MCP 头号采用障碍** → 本框架 `mcp-governance` 正是破局点。
+- Java+AI 复合岗 3–5 年 **45K–75K**；海外 MCP Expert（Java）€600-900/天。
 
-📊 完整每日收益/招标情报与接单定价梯度 → 见 [`docs/earnings-report-2026-10-01.md`](docs/earnings-report-2026-10-01.md) ｜ SEO 稿件 → [`docs/blog-java-mcp-enterprise-tender-2026-10-01.md`](docs/blog-java-mcp-enterprise-tender-2026-10-01.md)
+📊 完整每日收益/招标情报与接单定价梯度 → 见 [`docs/earnings-report-2026-10-03.md`](docs/earnings-report-2026-10-03.md) ｜ 上一份 → [`docs/earnings-report-2026-10-01.md`](docs/earnings-report-2026-10-01.md)
 
 ---
 
@@ -586,6 +588,7 @@ docker compose --profile full up -d
 | **V1.30** | **治理审计可运营化（mcp-governance）：审计多条件检索（search(Query)：tool/caller/decision/tier/from/to 全字段可空，JDBC 动态 WHERE 全参数绑定方言无关）+ CSV 导出（/audit/export：RFC 4180 + UTF-8 BOM + 注入转义，SIEM/Excel/监管报送）+ 保留策略 TTL（/audit/prune：deleteBefore 方言无关物理清理，GDPR 数据最小化，可配 cron）+ 管理 REST API 升级（旧调用兼容）；governance 49 测试全绿（新增 6 个）、全仓 21 模块构建通过；治理指南新增检索/导出/保留章节 + 掘金CSDN稿 + 市场雷达 09-21（中国移动校招 MCP Tool Server 岗/Singtel MCP governance 岗/Descope $88M MCP 安全岗/micro1 $60-120/hr/沃尔玛中国延续至 10-27）** | ✅ 已完成 |
 | **V1.32** | **治理审计实时流导出（mcp-governance）：audit.store=http —— HttpGovernanceAuditSink 用 JDK HttpClient（零外部依赖）把治理判定批量异步推送到 SIEM / Kafka REST Proxy / 任意 webhook（Splunk HEC/ES/Loki），攒批（默认50）+ 定时兜底（默认5s）发送，fail-soft 不挂业务 + 本地队列重试（水位保护），recent/search/deleteBefore 本地视图语义不变，sent/failed/pending 诊断计数，close() 最终 flush；governance 66 测试全绿（新增 4 个）、全仓 21 模块构建通过；治理指南第 12 章 + V1.32 发布说明 + 市场雷达 09-28（Spring AI Alibaba+Nacos 企业级 MCP 分布式部署成热点/Upwork 官方 MCP Server 上线改变接单方式/Mastercard·Autodesk Java-MCP 岗/合肥 MCP 工程师 1.1-1.7万×14薪/深圳 AI Agent Java 20-25K/重庆 MCP+Spring AI 1.5-3万）** | ✅ 已完成 |
 | **V1.33** | **市场情报 × 央企"MCP 注册"招标对齐（文档/市场发布）：检索到航空工业西安飞行自动控制研究所「AI 网关、MCP 注册、多模态平台」招标 ZC26G280436（直接点名 MCP 注册，10-20 截标）+ 中科院合肥院 1150 万 / 肿瘤医院 984 万政企大单；Bloomberg Enterprise MCP（15 客户端）/ Miro 1600 万次 MCP 调用 / Stacklok 64% 企业把安全治理列头号障碍（利好 mcp-governance）/ 五巨头 MCP 收敛完成 / 全球市场 $142 亿(+38.5%)·中国 ¥210 亿(18.7%)；新增 earnings-report-2026-10-01.md + 掘金CSDN稿 blog-java-mcp-enterprise-tender-2026-10-01.md + README 企业招标/招聘动态区块** | ✅ 已完成 |
+| **V1.34** | **Spring AI Alibaba 1.0 GA 对齐 × 投标资产（生产级就绪）：新增 `examples/spring-ai-alibaba-mcp-server/`（用 GA 把 @Tool Java 方法发布为 MCP 工具并挂 mcp-gateway 获治理层，独立 Maven 工程不进主 reactor）；新增 earnings-report-2026-10-03.md（近3天：长庆油田 130万专题2·MCP服务 10-16截标 + ZC26G280436 10-20截标 / freelancermap·Sumo Logic·OneSeven 点名 MCP Java 岗 / Upwork 官方 MCP Server 已成接单基础设施 / Spring AI Alibaba 1.0 GA=Nacos MCP Registry+Higress 网关与本框架同款定位）；新增 tender-proposal-ZC26G280436-2026-10-03.md（投标技术方案模板：需求↔模块映射+等保对照+交付周期）+ 掘金CSDN稿 blog-java-mcp-spring-ai-alibaba-ga-2026-10-03.md + README 招标/招聘区块更新。无破坏性变更，21 模块构建不受影响** | ✅ 已完成 |
 
 | **V1.14** | **租户生命周期管理 REST API（/api/admin/tenants：运行时开通/替换/挂起/恢复/销毁 独立实例池，TenantLifecycleManager + 404/409 语义化错误，10 集成测试/9 单测全绿）+ 仓库清理 + 市场雷达 08-30（蚂蚁 25-50K·15薪 MCP+A2A 岗/Upwork 官方 MCP Server 发布/Glama 首个全职工程师岗）** | ✅ 已完成 |
 
