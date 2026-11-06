@@ -71,6 +71,52 @@ mcp:
 
 ---
 
+## 第 6 步：传输层与注册期硬约束（应对 11-03~11-06 攻击波）
+
+> 前 5 步解决「谁能调、调什么、怎么留痕」；这一步解决「**请求本身能不能被信任**」。
+> 触发背景（2026-11-06 复核）：Wiz.io 90 天蜜罐实录 LiteLLM MCP Gateway 接受**一个字符** bearer token（`CVE-2026-59822`）、伪造 MCP server 配置的 `command` 字段在「连通性测试」里启动矿机且**握手正常**（`CVE-2026-42271`）、host-header 绕过串成未认证 RCE（`CVE-2026-48710`）；同期 NVD 新增 `CVE-2026-123272/123271`（OAuth resource confusion，RFC 9728 §3.3）、`CVE-2026-111769`（官方 TS SDK 跨源重定向泄漏 refresh_token）、`CVE-2026-121419`（会话指纹按方法名→劫持）、`CVE-2026-121458`（MCP 工具跳过对象级授权）。
+
+五条硬约束，逐条对应攻击：
+
+| 约束 | 拦住什么 | 模块 |
+| --- | --- | --- |
+| 请求体 **4 MiB** 上限（声明值 + 流式读取双校验，超限 413） | 全 SDK 无界请求体 DoS（`CVE-2026-108395`，官方 Java SDK `mcp-core` 亦中招） | `mcp-gateway` |
+| 鉴权 **fail-closed**：签名 / aud / iss / exp / scope 全校验，异常一律 401，绝不降级 | 一个字符 token 过网关；元数据 resource 与所访问 server 不符 | `mcp-auth` |
+| **同源 + 禁跟随跨源 307/308**（Host / X-Forwarded-Host 一致性） | host-header 绕过、SDK 重定向带出 refresh_token / client_secret | `mcp-gateway` |
+| 会话指纹 = **租户 + 用户主体 + clientId**，禁用 access method 名 | 同方法不同用户会话互相劫持 | `mcp-tenant` |
+| 工具注册 **默认 disabled** + 配置字段校验（拒绝 command/shell）+ 工具级 ACL 复用主 API 对象授权 | 注册期命令注入、MCP 侧门越权读 | `mcp-registry` + `mcp-governance` |
+
+```yaml
+mcp:
+  gateway:
+    auth:
+      fail-closed: true
+      verify: [signature, audience, issuer, expiry, scope]
+      same-origin-only: true
+      follow-cross-origin-redirect: false
+    limits:
+      max-request-body: 4MiB
+  registry:
+    default-enabled: false       # 对标 Uber 800+ servers：审核后显式启用
+    validate-config: true
+    reject-command-fields: true
+  governance:
+    tool-policy:
+      reuse-business-authorization: true   # 不另写一套宽松逻辑
+      write-requires-approval: true
+    session:
+      fingerprint: tenant+subject+clientId
+  monitor:
+    watch: [shell-spawn, child-process, outbound-egress, credential-access]
+```
+
+> 📌 **最容易被忽略的一条**：Wiz 观察到攻击者从**运行中的 Python 进程内存**里直接取回代理主密钥（磁盘上根本没有这个文件），并把矿机藏进 `.claude/` 目录伪装 AI 开发工具。所以 `mcp-monitor` 必须覆盖 **shell 派生 / 异常子进程 / 出站连接白名单 / 凭据访问**，而不能只看 HTTP 状态码 —— **握手正常不代表没被打**。
+
+可直接参考的过滤器骨架 + 流式限流 Wrapper + 完整配置 + 自测清单：
+[`examples/governance-hardening/`](../examples/governance-hardening/README.md)（参考片段，不进 Maven reactor，零构建风险）。
+
+---
+
 ## 合规加分：等保 2.0 三级对照表
 上述 5 步逐条映射到等保三级"访问控制/安全审计/入侵防范/数据保密/集中管控/高风险审批/限流隔离"，每条标注模块 + 测试证据 → [`mcp-governance-dengbao-compliance.md`](mcp-governance-dengbao-compliance.md)，**可直接进央企/军工/卫健标书作"合规就绪"证明**。
 

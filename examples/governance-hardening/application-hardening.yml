@@ -1,0 +1,40 @@
+# MCP 治理加固最小配置（参考示例）
+# 键名为示意，集成时以项目内 mcp-gateway / mcp-registry / mcp-governance 的实际属性为准。
+# 背景与逐条依据见 docs/earnings-report-2026-11-06.md 与 docs/mcp-security-hardening-quickstart.md 第 6 步。
+
+mcp:
+  gateway:
+    auth:
+      mode: bearer
+      fail-closed: true                    # 任何校验异常一律 401，绝不降级放行
+      verify: [signature, audience, issuer, expiry, scope]
+      same-origin-only: true              # Host / X-Forwarded-Host 一致性校验
+      follow-cross-origin-redirect: false # 禁跟随跨源 307/308（CVE-2026-111769）
+    limits:
+      max-request-body: 4MiB              # 声明值 + 流式双限（CVE-2026-108395）
+      connect-timeout: 5s
+      read-timeout: 30s
+
+  registry:
+    default-enabled: false                # 新 server/tool 审核后显式启用（对标 Uber 800+ servers）
+    validate-config: true
+    reject-command-fields: true           # 拒绝 command/shell 类字段进入注册与测试端点
+    test-endpoint-sandbox: true           # CVE-2026-42271：握手正常不代表配置可信
+
+  governance:
+    scope:
+      enforce: true                       # 缺 scope 直接拒绝
+    tool-policy:
+      reuse-business-authorization: true  # 复用主 API 对象级授权，不另写宽松逻辑（CVE-2026-121458）
+      write-requires-approval: true       # HITL：写操作先落审批单（Agiloft 同款）
+    session:
+      fingerprint: tenant+subject+clientId  # 绝不按 access method 名（CVE-2026-121419）
+    caller-policy:
+      by-caller: [human, service-account, autonomous-agent]
+      autonomous-agent-write: denied-by-default
+
+  monitor:
+    watch: [shell-spawn, child-process, outbound-egress, credential-access, archive-download]
+    outbound-allowlist-enabled: true
+    audit-retention-days: 180             # 关键日志 ≥180 天（企业治理指南最小基线）
+    audit-fields: [prompt, retrieved-context, tool-input, tool-output, decision, caller, status]
