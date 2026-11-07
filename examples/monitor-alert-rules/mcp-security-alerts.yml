@@ -1,0 +1,198 @@
+# ===========================================================
+# MCP Enterprise Server — 安全告警规则（V1.65 · 2026-11-07）
+#
+# 与 config/prometheus/alerts.yml 互补：
+#   alerts.yml            = 可用性视角（错误率/延迟/存活/流量骤降）
+#   本文件                = 安全视角（拒绝事件/出站/子进程/凭据访问/准入变更）
+#
+# ⚠️ 指标契约：mcp_security_* 需由网关过滤器埋点（见本目录 README.md）。
+#    mcp-monitor 当前已导出 mcp_tool_* / mcp_gateway_* / mcp_build_info，
+#    但尚未导出 mcp_security_*；本文件定义的是约定，不是既有实现。
+#
+# 加载：prometheus.yml 的 rule_files 追加本文件（docker-compose 已挂载 config/prometheus/）
+# ===========================================================
+groups:
+  # -----------------------------------------------------------
+  # 1. 鉴权与令牌绑定（11-05 / 11-06 CVE 波）
+  # -----------------------------------------------------------
+  - name: mcp-security-authn
+    rules:
+      # CVE-2026-59822：一个字符 bearer token 过 LiteLLM MCP Gateway 鉴权
+      - alert: McpShortBearerToken
+        expr: increase(mcp_security_short_bearer_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-auth
+          cve: CVE-2026-59822
+        annotations:
+          summary: "检测到超短 bearer token（一个字符鉴权绕过特征）"
+          description: "租户 {{ $labels.tenant }} 5 分钟内出现 {{ $value }} 次超短 bearer token。必须 401 + 落审计；若响应为 2xx 说明鉴权已被绕过。"
+
+      # CVE-2026-111771（官方 TS SDK 不校验 aud/resource）+ CVE-2026-123271/123272（resource confusion）
+      - alert: McpAudienceMismatch
+        expr: |
+          increase(mcp_security_rejections_total{reason=~"audience_mismatch|resource_confusion|issuer_invalid"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-auth
+          cve: CVE-2026-111771
+        annotations:
+          summary: "令牌受众 / 资源标识不匹配（跨服务授权绕过尝试）"
+          description: "工具 {{ $labels.tool }} 拒绝原因 {{ $labels.reason }}，5 分钟内 {{ $value }} 次。核对 IdP 是否为多服务共用一个授权服务器，并确认 expectedResource 已显式启用。"
+
+      - alert: McpHostHeaderMismatch
+        expr: increase(mcp_security_host_mismatch_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-gateway
+          cve: CVE-2026-48710
+        annotations:
+          summary: "Host / X-Forwarded-Host 不一致（host-header 绕过特征）"
+          description: "租户 {{ $labels.tenant }} 出现 {{ $value }} 次伪造 Host。检查是否伴随未认证 RCE 链条（Qilin 勒索已知手法）。"
+
+      # 凭据盗刷 / 爆破：以失败为主的密集调用
+      - alert: McpAuthFailureStorm
+        expr: |
+          rate(mcp_security_rejections_total{reason=~"invalid_token|missing_bearer|scope_denied"}[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+          component: mcp-auth
+        annotations:
+          summary: "鉴权拒绝风暴（疑似凭据爆破或盗用 token 扫描工具面）"
+          description: "拒绝原因 {{ $labels.reason }} 速率 {{ $value | humanize }}/s，工具 {{ $labels.tool }}。"
+
+  # -----------------------------------------------------------
+  # 2. 注册准入与请求体（Wiz 蜜罐 / 全 SDK DoS）
+  # -----------------------------------------------------------
+  - name: mcp-security-registration
+    rules:
+      # CVE-2026-42271：伪造 MCP server 配置 command 启动矿机，且握手正常返回
+      - alert: McpMaliciousRegistration
+        expr: |
+          increase(mcp_security_registration_rejected_total{reason=~"command_field|shell_field|unpinned_binary"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-registry
+          cve: CVE-2026-42271
+        annotations:
+          summary: "注册请求含可执行 command / shell 字段（矿机投递特征）"
+          description: "原因 {{ $labels.reason }} 共 {{ $value }} 次。注意该攻击的 MCP 握手会正常返回，业务错误率不会异常 —— 只能靠注册期拒绝信号发现。"
+
+      # CVE-2026-108395：全 SDK 无界请求体 DoS，官方统一修 4 MiB
+      - alert: McpOversizedBody
+        expr: increase(mcp_security_body_too_large_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          component: mcp-gateway
+          cve: CVE-2026-108395
+        annotations:
+          summary: "请求体超过 4 MiB 上限"
+          description: "租户 {{ $labels.tenant }} 出现 {{ $value }} 次超限请求，已返回 413。持续出现需核查是否为 DoS 探测。"
+
+      # Uber 生产架构：工具默认 disabled，须归属团队审核后显式启用
+      - alert: McpToolEnableBurst
+        expr: increase(mcp_security_tool_enabled_total[5m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          component: mcp-registry
+        annotations:
+          summary: "5 分钟内批量启用 >3 个工具（准入绕过嫌疑）"
+          description: "操作者 {{ $labels.actor }} 启用了 {{ $value }} 个工具。核对变更单与归属团队审批记录。"
+
+  # -----------------------------------------------------------
+  # 3. 出站 / 子进程 / 凭据访问（Wiz 蜜罐后期动作）
+  # -----------------------------------------------------------
+  - name: mcp-security-runtime
+    rules:
+      # CVE-2026-111769 / CVE-2026-123786：跨源重定向带出 refresh_token / Secret token
+      - alert: McpCrossOriginRedirect
+        expr: |
+          increase(mcp_security_egress_blocked_total{reason=~"cross_origin_redirect|downgrade_redirect|private_address|metadata_address"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-gateway
+          cve: CVE-2026-123786
+        annotations:
+          summary: "跨源 / 私网 / 云元数据出站被阻断（SSRF + 凭据外带特征）"
+          description: "目标 {{ $labels.host }}，原因 {{ $labels.reason }}，工具 {{ $labels.tool }}。同代码库其他路径是否也有同等校验需复查（Agenta 事故根因）。"
+
+      - alert: McpEgressBlockedBurst
+        expr: rate(mcp_security_egress_blocked_total[5m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          component: mcp-gateway
+        annotations:
+          summary: "非常规出站持续被拒（疑似提示注入驱动的带外信道）"
+          description: "目标 {{ $labels.host }} 速率 {{ $value | humanize }}/s。检查工具入参是否夹带自然语言指令。"
+
+      # XMRig 藏 .claude/unicorn；盲提示注入通过 shell 工具执行
+      - alert: McpUnexpectedChildProcess
+        expr: |
+          increase(mcp_security_child_process_total{exe=~".*(xmrig|minerd|curl|wget|bash|sh|python.*-c|powershell).*"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: mcp-monitor
+        annotations:
+          summary: "MCP 进程派生了非白名单子进程"
+          description: "父进程 {{ $labels.parent }} → {{ $labels.exe }}，共 {{ $value }} 次。核查是否被伪装成 AI 开发工具（.claude/ 等隐藏目录）。"
+
+      # 从运行进程内存抠 proxy master key：磁盘无文件，只能靠凭据访问频次异常
+      - alert: McpCredentialAccessAnomaly
+        expr: increase(mcp_security_credential_access_total[5m]) > 20
+        for: 0m
+        labels:
+          severity: warning
+          component: mcp-auth
+        annotations:
+          summary: "凭据代理取用异常频繁（疑似 proxy master key 被批量读取）"
+          description: "principal {{ $labels.principal }} 在工具 {{ $labels.tool }} 上 5 分钟内取用 {{ $value }} 次。审计流必须可检索到每次取用。"
+
+  # -----------------------------------------------------------
+  # 4. 审批积压与「成功但异常」调用（常规可用性指标看不到的部分）
+  # -----------------------------------------------------------
+  - name: mcp-security-governance
+    rules:
+      - alert: McpApprovalBacklog
+        expr: mcp_security_pending_approvals > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: mcp-governance
+        annotations:
+          summary: "HITL 待审批积压（{{ $labels.risk_tier }} 级 {{ $value }} 条）"
+          description: "写操作持续等待人工确认，检查审批人是否在线或是否被攻击者用大量待审批项淹没。"
+
+      # 矿机 / 批量外传常表现为「零错误 + 高吞吐 + 高延迟」，可用性规则不会报
+      - alert: McpSilentHighThroughput
+        expr: |
+          rate(mcp_tool_invocations_total[5m]) > 20
+          and
+          rate(mcp_tool_errors_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: info
+          component: mcp-monitor
+        annotations:
+          summary: "工具 {{ $labels.tool }} 持续高吞吐且零错误（需人工甄别是否为自动化滥用）"
+          description: "调用全部成功、错误率 0，常规错误率告警不会触发。结合出站 / 子进程 / 凭据访问三类信号复核。"
+
+      # 拒绝事件激增但服务指标全绿 = 正在被扫描
+      - alert: McpRejectionStorm
+        expr: rate(mcp_security_rejections_total[5m]) > 2
+        for: 3m
+        labels:
+          severity: warning
+          component: mcp-governance
+        annotations:
+          summary: "治理层拒绝事件激增（工具 {{ $labels.tool }}，原因 {{ $labels.reason }}）"
+          description: "拒绝速率 {{ $value | humanize }}/s。服务错误率可能仍为 0（因在网关层提前拦截），需单独观察。"
