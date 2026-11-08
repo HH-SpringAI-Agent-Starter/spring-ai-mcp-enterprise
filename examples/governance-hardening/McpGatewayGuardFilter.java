@@ -30,6 +30,10 @@ import java.io.IOException;
  * ⚠️ 这是示例片段，位于 examples/ 下，不在 Maven reactor 中，不参与 CI 构建。
  *    集成时应把 TokenVerifier / CallerPolicy / AuditSink 换成项目内
  *    mcp-auth / mcp-governance / mcp-audit 的实际 Bean，详见 README.md。
+ *
+ * V1.66（2026-11-08）：接入 {@link McpSecurityMetrics}，把 V1.65
+ * {@code examples/monitor-alert-rules/} 定义的 {@code mcp_security_*} 埋点契约
+ * 落到每个拒绝分支 —— 告警规则从「约定」变成「可运行」。
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -41,35 +45,70 @@ public class McpGatewayGuardFilter extends OncePerRequestFilter {
     private final TokenVerifier verifier;
     private final CallerPolicy policy;
     private final AuditSink audit;
+    private final McpSecurityMetrics metrics;
 
     public McpGatewayGuardFilter(TokenVerifier verifier, CallerPolicy policy, AuditSink audit) {
+        this(verifier, policy, audit, new McpSecurityMetrics());
+    }
+
+    /** 传入应用级单例，便于把 {@link #getMetrics()} 挂到 Prometheus 导出端点。 */
+    public McpGatewayGuardFilter(TokenVerifier verifier, CallerPolicy policy, AuditSink audit,
+                                 McpSecurityMetrics metrics) {
         this.verifier = verifier;
         this.policy = policy;
         this.audit = audit;
+        this.metrics = metrics;
     }
+
+    public McpSecurityMetrics getMetrics() { return metrics; }
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse resp,
                                     FilterChain chain) throws ServletException, IOException {
 
+        final String tenant = tenantOf(req);
+        final String authHeader = req.getHeader("Authorization");
+
+        // (0) 短 bearer：CVE-2026-59822 一个字符 token 就过了 LiteLLM MCP Gateway
+        if (authHeader != null && authHeader.length() >= 7
+                && authHeader.regionMatches(true, 0, "Bearer ", 0, 7)
+                && authHeader.substring(7).trim().length() < 8) {
+            metrics.shortBearer(tenant);
+            reject(resp, 401, req, "SHORT_BEARER", "bearer length < 8");
+            return;
+        }
+
         // (1) 请求体硬上限：声明值先拦，实际流式读取由 BoundedRequestWrapper 二次校验
         if (req.getContentLengthLong() > MAX_BODY_BYTES) {
+            metrics.bodyTooLarge(tenant);
             reject(resp, 413, req, "BODY_LIMIT", "declared=" + req.getContentLengthLong());
             return;
         }
 
         // (2) 同源：Host / X-Forwarded-Host 必须一致，禁止跟随跨源重定向
         if (!sameOrigin(req)) {
+            metrics.hostMismatch(tenant);
             reject(resp, 403, req, "CROSS_ORIGIN", "host=" + req.getHeader("Host"));
             return;
         }
 
+        // (2b) 注册期：伪造配置 command 启动矿机且握手仍正常（CVE-2026-42271）
+        if (req.getParameter("command") != null || req.getHeader("X-MCP-Command") != null) {
+            metrics.registrationRejected("command_field", tenant);
+            reject(resp, 403, req, "REGISTRATION_REJECTED", "command field not allowed");
+            return;
+        }
+
         // (3) 鉴权 fail-closed：完整校验 signature / aud / iss / exp / scope，异常绝不降级放行
+        //     audience / resource 不匹配单列 reason，供 McpAudienceMismatch 规则精确告警
         final Caller caller;
         try {
-            caller = verifier.verify(req.getHeader("Authorization"));
+            caller = verifier.verify(authHeader);
         } catch (AuthException e) {
-            reject(resp, 401, req, "AUTH_FAIL", e.getMessage());
+            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+            String code = (msg.contains("aud") || msg.contains("resource"))
+                    ? "AUDIENCE_MISMATCH" : "AUTH_FAIL";
+            reject(resp, 401, req, code, e.getMessage());
             return;
         }
 
@@ -88,6 +127,8 @@ public class McpGatewayGuardFilter extends OncePerRequestFilter {
         // (6) 写操作强制人工确认：先落审批单，不直接执行
         if (policy.isWrite(tool) && !policy.approvalGranted(req)) {
             String ticket = audit.pending(req, tool, caller);
+            metrics.pendingApproval("high", +1);          // 审批结单时须 -1
+            metrics.rejection("PENDING_APPROVAL", tool, caller.tenantId());
             resp.setStatus(HttpServletResponse.SC_ACCEPTED);
             resp.setContentType("application/json;charset=UTF-8");
             resp.getWriter().write("{\"status\":\"PENDING_APPROVAL\",\"ticket\":\"" + ticket + "\"}");
@@ -95,6 +136,10 @@ public class McpGatewayGuardFilter extends OncePerRequestFilter {
         }
 
         // (7) 全程留痕：提示词 / 检索片段 / 工具入参出参 / 决策依据
+        //     凭据代理类工具单独计数，供 McpCredentialAccessAnomaly 规则检测短时突增
+        if (tool.endsWith("_credential_proxy")) {
+            metrics.credentialAccess(caller.subject(), tool);
+        }
         try {
             chain.doFilter(new BoundedRequestWrapper(req, MAX_BODY_BYTES, sessionKey), resp);
         } finally {
@@ -117,10 +162,22 @@ public class McpGatewayGuardFilter extends OncePerRequestFilter {
 
     private void reject(HttpServletResponse resp, int status, HttpServletRequest req,
                         String code, String detail) throws IOException {
+        // 所有 fail-closed 拒绝统一落 mcp_security_rejections_total，告警规则才有单一真源
+        metrics.rejection(code, toolOf(req), tenantOf(req));
         audit.reject(req, code, detail);
         resp.setStatus(status);
         resp.setContentType("application/json;charset=UTF-8");
         resp.getWriter().write("{\"error\":\"" + code + "\",\"detail\":\"" + detail + "\"}");
+    }
+
+    private static String toolOf(HttpServletRequest req) {
+        String t = req.getHeader("X-MCP-Tool");
+        return t == null ? "" : t;
+    }
+
+    private static String tenantOf(HttpServletRequest req) {
+        String t = req.getHeader("X-Tenant-Id");
+        return t == null ? "unknown" : t;
     }
 
     // ---- 以下为示例契约：集成时替换为项目内实现 ----

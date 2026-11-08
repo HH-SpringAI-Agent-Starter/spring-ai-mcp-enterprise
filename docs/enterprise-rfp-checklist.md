@@ -133,7 +133,7 @@
 
 ---
 
-## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.65 · 2026-11-07）
+## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.66 · 2026-11-08）
 
 > **用途**：投标「威胁建模 / 安全设计」章节、售前白皮书一页纸、安全复测对照表。
 > **证据**：Wiz.io 90 天 AI 基础设施蜜罐研究 + 11-03~11-06 NVD 新 CVE 波 + Gartner 首个 AI Agent Management MQ，全部为**公开实证、不含推测**，详见
@@ -158,11 +158,14 @@
 | 15 | 🆕 `CVE-2026-123786`（11-06，8.5）Agenta workflow `url` 只校验 scheme/netloc + `follow_redirects=True` 带 Secret token → SSRF 打云元数据 + 重定向跳外带凭据；**同库 webhook 路径已有私网校验、workflow 路径没有** | 出站白名单（含 DNS 解析后私网/元数据地址阻断）、禁跟随跨源重定向、自定义头不跨源、**所有取 URL 的路径共用同一校验器** | `mcp-gateway` + `mcp-auth` + `mcp-monitor` | 提交 `http://169.254.169.254/` 必须拒绝；审计能证明 webhook 与 workflow 走同一校验器 |
 | 16 | 🆕 Gartner 首个 AI Agent Management MQ：**各家最深的治理只覆盖自有 runtime，第三方运行时管不住**（Dify 被点名「最强控制只针对内建 agent」、AvePoint「缺实时运行时控制」、Gravitee「只有流量过它的网关才生效」） | 治理层协议/平台无关，与买方指定的 Dify / hiagent 并存，工具接入层统一受同一套策略约束 | `mcp-gateway` + `mcp-governance` + `mcp-registry` | 在买方指定平台上发起的跨运行时工具调用，仍能被本层拒绝并留痕 |
 
+| 17 | 🆕🆕 **`CVE-2026-119025`（11-05 公开完整链）连接路径 RCE**：远程 MCP server 在 OAuth discovery 的 `authorization_endpoint` 返回 `https://evil.test/$(...)`，官方 MCP Inspector 自动打开时 `open` 10.x 在 Windows/WSL 塞进 PowerShell 双引号求值 `$(...)`；**零工具调用、零审批、零模型参与，代码在工具列表出现前执行**；合法 https URL 使「只校验 scheme」失效。兄弟洞 `GHSA-4fc4-wcmh-4g86` **9.6** 可把远程 session 翻转成本地 stdio 执行（不限 OS） | 客户端侧连接路径准入：URL 字符级校验先于 scheme、host allowlist、私网/元数据字面阻断、发现文档大小上限、**浏览器用 argv 不经 shell**、远程目标默认 opt-in | `examples/connect-path-guard/`（客户端）+ `mcp-gateway`（服务端互补） | 提交 `https://evil.test/$([IO.File]::WriteAllText(...))` 必须被拒；正常 `https://auth.example.com/o?a=b&c=d` 必须通过；`ProcessBuilder` argv 中不得出现 `powershell` |
+| 18 | 🆕🆕 **「无 CVE 的修复」使扫描器集体失明**：opencode 1.18.33 同类 RCE 以 `refactor(core): share a browser opener` 悄悄修掉，无 CVE / 无公告 → GitHub Advisory DB、Dependabot、SBOM 全部静默；Adversa AI 统计 10 起 Claude Code 相关攻击仅 2 起有 CVE；叠加 LiteLLM `GHSA-7hp6-4w63-5g45`（复用 salt 伪造 proxy-admin → MCP stdio 主机 RCE，与 `59822` 同组件两周连打） | 客户端工具**资产清单 + 自动更新通道 + 版本下限**（Inspector ≥2.12.0 / 导入 `server.json` ≥2.14.0），不把 agent CLI 当库等 CVE；网关凭据签发 salt 隔离、MCP stdio 端点最小暴露 | `mcp-governance`（准入策略）+ `mcp-monitor`（版本基线） + `examples/connect-path-guard/` | 低于版本下限的客户端连接必须拒绝并落审计；伪造 `internal_user` 提权到 proxy-admin 必须失败 |
+
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理是安全的**。上述 16 类攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理是安全的**。上述 18 类攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 
-### 📋 采购方视角补充：合规文档也成了评估项（V1.65）
+### 📋 采购方视角补充：合规文档也成了评估项（V1.66）
 
 [Peliqan《GDPR-Compliant MCP Servers: The 2026 Procurement Reference》](https://peliqan.io/blog/gdpr-compliant-mcp-servers/) 指出 **ROPA（处理活动记录）** 是 DPA 问询、网络保险承保、SOC 2 审计都会索要的唯一工件，要求 MCP server 自动产出七类元数据：per-tool purpose tag、per-connector 数据分类、数据主体类别、接收方（LLM 供应商 / 下游 SaaS / 审计日志目的地）、第三国转移 SCC、保留期、安全措施（静态与传输加密 / RBAC / 脱敏 / MFA / 审计日志）。自动化 ROPA 每年为 DPO 省 **40–80 小时**。
 
@@ -175,8 +178,19 @@
 
 > 采购应答提示：**写「符合等保」不如写「这七类元数据由哪个类产生、怎么导出」**。逐条应答对照见 [`gf-securities-tender-response-2026-11-07.md`](gf-securities-tender-response-2026-11-07.md)。
 
-**配套采购窗口（应答时引用）**：广发证券《智能金融资讯数据服务平台》供应商征集 **11-13 17:30 截止**（MCP 工具协议 + Skill + 子 Agent + 混合检索，剩 6 天）；同券商《2026 企业微信持续建设项目》把「工具定义与描述 / 参数校验 / 鉴权与权限控制 / 调用限流 / 日志与可观测性」写进资质门槛且指定 Dify/hiagent；山东重工集团级大模型平台二次招标 **11-20 截止**（统一安全管控）；厦大 11-11 / 军队 190 万 11-16 / 中山 399 万 11-17 / 呼市 900 万 11-23 / 中央民大 3712 万 11-25。
+
+### 🆕 V1.66 补充：HITL 公开规格与云网关分层（应答时引用）
+
+| 公开规格 | 可直接写进验收列的做法 |
+| --- | --- |
+| [Travel Code MCP 11-06 写操作开放](https://travel-code.com/news/travel-code-mcp-connectors) | 下单/改单/取消/联系旅客**首次调用永不执行**；确认在 server 不在 model；elicitation 由 server 发 Confirm/Cancel 使**模型不能代答**；无 elicitation 时返回绑定 session 与精确参数、**10 分钟一次性码**；命名 OAuth scope；策略在创建订单时校验；外部工具 Always/Ask/Off、工具列表变更即暂停连接待重批、外部返回只当数据不当指令（诚实边界：**无 submit-for-approval**） |
+| [Workspace369 CRM MCP（厂商文档 11-07 核）](https://workspace369.com/blog/best-crm-mcp-servers) | 12 类动作默认等待应用内审批、60 分钟过期；**AI 应用不能批准自己的请求**（自批分离）；审计日志**只存字段名不存值**；120 calls/min/connection |
+| [Celigo 11 月版](https://www.celigo.com/builders-hub/celigo-november-2026-release) / [AgentCore Gateway](https://dev.to/om_shree_0709/amazon-bedrock-agentcore-gateway-just-became-the-enterprise-mcp-infrastructure-layer-heres-what-m4o) | 从已认证请求解析 caller 身份、无身份 fail-closed 返回空；dynamic listing 按身份实时列工具；elicitation 三模式 |
+
+> **选型会必答**：Azure / AWS / 腾讯云 / Celigo 本周已把注册、动态列工具、鉴权、限流、HITL、可观测做成平台标配 —— 本方案**不与云网关抢流量入口**，采用「云网关管流量与成本 / 本层管责任认定 / 客户端管连接准入」三层分工，能力对照与 5 条买方问答见 [`enterprise-cloud-gateway-comparison-2026-11-08.md`](enterprise-cloud-gateway-comparison-2026-11-08.md)。ROPA 七字段的可运行导出见 [`../examples/audit-ropa-export/README.md`](../examples/audit-ropa-export/README.md)。
+
+**配套采购窗口（应答时引用）**：广发证券《智能金融资讯数据服务平台》供应商征集 **11-13 17:30 截止**（MCP 工具协议 + Skill + 子 Agent + 混合检索，剩 5 天）；同券商《2026 企业微信持续建设项目》把「工具定义与描述 / 参数校验 / 鉴权与权限控制 / 调用限流 / 日志与可观测性」写进资质门槛且指定 Dify/hiagent；山东重工集团级大模型平台二次招标 **11-20 截止**（统一安全管控）；厦大 11-11 / 军队 190 万 11-16 / 中山 399 万 11-17 / 呼市 900 万 11-23 / 中央民大 3712 万 11-25。
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.65 (2026-11-07)_
+_本清单随项目版本持续更新。最后更新: V1.66 (2026-11-08)_

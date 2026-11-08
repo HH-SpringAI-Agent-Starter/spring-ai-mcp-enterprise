@@ -32,7 +32,8 @@
 
 ## 埋点契约（`mcp_security_*` 指标）
 
-⚠️ **诚实说明**：`mcp-monitor` 目前已导出 `mcp_tool_invocations_total` / `mcp_tool_errors_total` / `mcp_tool_latency_ms` / `mcp_gateway_*` / `mcp_build_info`（见 `McpMetricsCollector.exportPrometheus()`），**尚未导出下面的 `mcp_security_*` 指标**。本目录定义的是**约定契约**，需由网关过滤器在拒绝路径上埋点（[`examples/governance-hardening/McpGatewayGuardFilter.java`](../governance-hardening/McpGatewayGuardFilter.java) 是天然挂载点）。
+✅ **V1.66（2026-11-08）状态更新 —— 契约已落地**：下表 10 个指标已由 [`examples/governance-hardening/McpSecurityMetrics.java`](../governance-hardening/McpSecurityMetrics.java) 实现（零依赖 `ConcurrentHashMap` + `AtomicLong`，`exportPrometheus()` 直接输出），并挂进 [`McpGatewayGuardFilter`](../governance-hardening/McpGatewayGuardFilter.java) 的每个拒绝分支（短 bearer / 4 MiB / host 不一致 / 注册 `command` 字段 / 受众不匹配 / 待审批 / 凭据取用）。三个新 Java 示例已实测 `javac` 编译 + `main()` 自检全绿。
+⚠️ **仍然诚实保留**：`mcp-monitor` **主模块**目前仍只导出 `mcp_tool_invocations_total` / `mcp_tool_errors_total` / `mcp_tool_latency_ms` / `mcp_gateway_*` / `mcp_build_info`；`mcp_security_*` 位于 `examples/` 层，生产集成需把 `McpSecurityMetrics` 单例挂到 actuator 端点（或替换为 Micrometer `MeterRegistry`）。**本目录不需要再自行补埋点**，只需接导出端点。
 
 | 指标 | 类型 | label | 埋点位置 |
 | --- | --- | --- | --- |
@@ -47,7 +48,7 @@
 | `mcp_security_body_too_large_total` | counter | `tenant` | 请求体超 4 MiB |
 | `mcp_security_tool_enabled_total` | counter | `tool`, `actor` | 工具从 disabled → enabled 的准入变更 |
 
-**最小埋点示例**（挂在过滤器拒绝分支）：
+**最小埋点示例**（挂在过滤器拒绝分支；若用 V1.66 的 `McpSecurityMetrics` 则已内置，此段仅供改用 Micrometer 时参考）：
 
 ```java
 // 与 examples/governance-hardening/McpGatewayGuardFilter.java 的 reject() 对齐
@@ -99,7 +100,7 @@ private void reject(HttpServletResponse resp, String reason, String tool, String
 
 1. 把 `mcp-security-alerts.yml` 复制到 `config/prometheus/`，在 `prometheus.yml` 的 `rule_files` 追加该路径（原 `alerts.yml` 保留，两者互补）。
 2. 把 `McpSecurityAlertRules.java` 作为 `@Configuration` 加入自己的服务，注入 `McpAlertService`（`mcp-monitor` 自动装配已提供该 Bean）。
-3. 按上表在 `McpGatewayGuardFilter` 的拒绝分支补 `mcp_security_*` 埋点；用「验收方式」列逐条打一次，确认**告警 + 审计**双落地。
+3. ~~按上表在 `McpGatewayGuardFilter` 的拒绝分支补 `mcp_security_*` 埋点~~ → **V1.66 已兑现**：过滤器已接入 `McpSecurityMetrics`，直接把 `getMetrics().exportPrometheus()` 挂到端点即可；用「验收方式」列逐条打一次，确认**告警 + 审计**双落地。新指标名写错会 fail-fast，不会静默丢数据。
 
 > **审计优先于告警**：告警可能丢、可能被抑制（默认 `suppressMs = 300_000`），但 append-only 审计流不能丢。所有拒绝事件必须先写审计再发告警 —— 这也是广发 13322 号公告「服务行为自动留痕、日志不可篡改」的落地方式。
 
