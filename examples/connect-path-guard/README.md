@@ -1,7 +1,8 @@
 # MCP 连接路径防护（Reference Only）
 
-> V1.66 新增 · 2026-11-08 · **不进 Maven reactor、不参与 CI 构建、零外部依赖**
-> 纯 JDK，`javac McpConnectPathGuard.java && java com.example.mcp.connectguard.McpConnectPathGuard` 可直接跑自检。
+> V1.66 新增 · 2026-11-08 ｜ **V1.67 扩充 · 2026-11-09（兑现 DNS rebinding TODO）** · **不进 Maven reactor、不参与 CI 构建、零外部依赖**
+> 纯 JDK，`javac -encoding UTF-8 -d /tmp/out McpConnectPathGuard.java McpResolvedIpGuard.java`，再分别跑两个 `main()` 自检。
+> 🆕 V1.67 新增 `McpResolvedIpGuard.java`：解析后真实 IP 校验 + IP 固定（pin），把本目录原「还可补的」第一条关闭。
 
 ---
 
@@ -37,7 +38,33 @@
 | 3 | `browserArgs(exe, url)` | 服务端给的字符串到达 shell / PowerShell | 返回 `List<String>` 交给 `ProcessBuilder`；固定可执行文件路径 + `--` 分隔，绝不拼 `-EncodedCommand` |
 | 4 | `autoOpenAllowed(remote, optIn)` + `enforceVersionFloor(tool, current, floor)` | 默认自动打开 + 「无 CVE 修复」永远等不到告警 | 远程目标默认禁自动打开；Inspector 版本下限 2.12.0（导入 `server.json` 用 2.14.0） |
 
-**自带对照组自检**（`main()`）：6 条攻击用例必须被拒 + 3 条正常用例必须放行 + argv 中不得出现 `powershell`。V1.66 已实测 `self-test OK (6 attack cases + 3 control cases)`。
+**自带对照组自检**（`main()`）：6 条攻击用例必须被拒 + 3 条正常用例必须放行 + argv 中不得出现 `powershell`。V1.66 已实测 `self-test OK (6 attack cases + 3 control cases)`，V1.67 回归重跑仍通过。
+
+---
+
+## 🆕 V1.67 第五条控制点：解析后真实 IP 校验 + IP 固定（`McpResolvedIpGuard`）
+
+V1.66 只做**字面量**私网检查，README 里明确留了 TODO。攻击者注册 `attacker.example` 先解析到公网 IP 通过主机白名单，把 TTL 设为 0，真正建连时改解析到 `127.0.0.1` / `169.254.169.254`，即可把「检查时公网、连接时内网」的 **TOCTOU 时间差**变成 SSRF / 云元数据窃取。这正对应 `CVE-2026-11624`（DNS rebinding，NIST 要求 Origin 校验为主动修复义务）、`CVE-2026-123786`（Agenta workflow SSRF）与 11-09 检索到的腾讯云 / CSDN 治理实践「出站白名单须含 DNS 解析后真实 IP 阻断」。
+
+| # | 方法 | 挡住什么 |
+| --- | --- | --- |
+| 1 | `resolveAndScreen(host, resolver)` | 解析**全部** A/AAAA 记录，任一命中黑名单即整次拒绝（不能只查第一个） |
+| 2 | `isForbidden(InetAddress)` | loopback / RFC1918 / link-local 含 `169.254.169.254` / CGNAT 100.64/10 / `0.0.0.0/8` / 多播 / 保留段 / IPv6 ULA `fc00::/7` / `fe80::/10` / **IPv4-mapped IPv6（`::ffff:127.0.0.1`）** / 6to4 / Teredo |
+| 3 | `pin(host, port, resolver)` | 把校验通过的 IP **固定**下来交给连接层，连接时不再做第二次 DNS 解析 —— 光「校验一遍」不够，这是防 rebinding 的关键 |
+| 4 | `screenUrl(url, allowlist, resolver)` | 与 V1.66 串联：**先字符后 scheme，再解析后 IP** |
+| 5 | 可注入 `Function<String, InetAddress[]>` 解析器 | 自检**不依赖外网**，可确定性复现「一次公网一次私网」的 rebinding 场景 |
+
+**已实测自检**：
+
+```
+[McpResolvedIpGuard] self-test OK (16 attack cases + 5 control cases)
+pin = api.example.com:443 -> 93.184.216.34
+[McpConnectPathGuard] self-test OK (6 attack cases + 3 control cases)   ← V1.66 回归
+```
+
+覆盖：字面量私网/元数据/loopback/IPv6 ULA/IPv4-mapped 私网、DNS rebinding（多记录夹带 `127.0.0.1`）、多记录夹带 `10.0.0.7`、解析到元数据、空解析 fail-closed、`$(...)` 载荷在 DNS 之前被拒、白名单主机 rebinding 仍被拒、pin 拒绝 rebinding 主机；对照组含公网域名 / 公网 IPv4 / 全局 IPv6 / 合法白名单 URL 全部放行。
+
+> ⚠️ **诚实边界（仍未做的）**：不替代服务端 Origin/Host 头校验；**HTTP 重定向后的每一跳都必须重新走本校验**（本示例不含重定向链）；连接层须保证 SNI/Host 与 pinned IP 一致；生产还应叠加强制出站代理与 `mcp-monitor` 拒绝埋点。
 
 ---
 
@@ -45,7 +72,8 @@
 
 | 层 | 位置 | 负责 | 仓库文件 |
 | --- | --- | --- | --- |
-| **连接路径（本目录）** | MCP **客户端** / 调试工具 / IDE 插件 | discovery 可信边界、浏览器启动、客户端版本下限、工具供应链准入 | `McpConnectPathGuard.java` |
+| **连接路径（本目录）** | MCP **客户端** / 调试工具 / IDE 插件 | discovery 可信边界、浏览器启动、客户端版本下限、工具供应链准入、**解析后真实 IP 校验 + IP 固定** | `McpConnectPathGuard.java` + `McpResolvedIpGuard.java` |
+| 工具入参 | 工具实现内部 / 网关参数校验 | 逐工具语句文法、堆叠语句、注释绕过、只读注解不可信 | [`../tool-input-grammar/`](../tool-input-grammar/README.md) |
 | 请求路径 | MCP **服务端** / 网关 | 4 MiB、fail-closed 鉴权、同源、会话主体、工具准入、HITL、审计 | [`../governance-hardening/`](../governance-hardening/README.md) |
 | 检测响应 | 监控 / SIEM | 拒绝事件、出站、子进程、凭据访问独立信号 | [`../monitor-alert-rules/`](../monitor-alert-rules/README.md) |
 
@@ -55,9 +83,11 @@
 
 ## 还可补的（诚实清单）
 
-- 解析后真实 IP 校验（防 DNS rebinding）——本示例只做字面量检查，不触发 DNS；
+- ✅ ~~解析后真实 IP 校验（防 DNS rebinding）~~ —— **V1.67 已由 `McpResolvedIpGuard` 关闭**（含 IP 固定）；
+- HTTP 重定向链逐跳重校验 + 连接层 SNI/Host 与 pinned IP 一致性断言；
 - 客户端工具**资产清单 + 自动更新通道**（把 agent CLI 当浏览器管，而不是当库等 CVE）；
-- 从搜索结果仓库安装 MCP server 的准入策略（Check Point Yoba 假 ChatGPT/Claude 安装包 DLL sideloading 活动）。
+- 从搜索结果仓库安装 MCP server 的准入策略（Check Point Yoba 假 ChatGPT/Claude 安装包 DLL sideloading 活动）；
+- STDIO `command` allowlist 落地（Anthropic 对 STDIO 架构缺陷明确「Won't Be Patched」，唯一缓解是把启动命令收敛到 `npx` / `uvx` / `python` / `node` / `docker` / `deno`，且非 SDK 默认）。
 
 ---
 
