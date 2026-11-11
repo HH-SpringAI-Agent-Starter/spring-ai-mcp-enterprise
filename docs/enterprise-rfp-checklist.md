@@ -133,11 +133,11 @@
 
 ---
 
-## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.68 · 2026-11-10）
+## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.69 · 2026-11-11）
 
 > **用途**：投标「威胁建模 / 安全设计」章节、售前白皮书一页纸、安全复测对照表。
-> **证据**：Wiz.io 90 天 AI 基础设施蜜罐研究 + 11-03~11-06 NVD 新 CVE 波 + Gartner 首个 AI Agent Management MQ + **11-08 官方参考服务器七 CVE + 11-10 Dynatrace 双 CVE**，全部为**公开实证、不含推测**，详见
-> [`earnings-report-2026-11-06.md`](earnings-report-2026-11-06.md) 第 1、2 节、[`earnings-report-2026-11-07.md`](earnings-report-2026-11-07.md) 第 1、2 节与 [`earnings-report-2026-11-10.md`](earnings-report-2026-11-10.md) 第 1 节。每条都给出「怎么验」。
+> **证据**：Wiz.io 90 天 AI 基础设施蜜罐研究 + 11-03~11-06 NVD 新 CVE 波 + Gartner 首个 AI Agent Management MQ + **11-08 官方参考服务器七 CVE + 11-10 Dynatrace 双 CVE + 11-10 Siemens Mendix 双 CVE + 11-11 INITE 全生态普查**，全部为**公开实证、不含推测**，详见
+> [`earnings-report-2026-11-06.md`](earnings-report-2026-11-06.md) 第 1、2 节、[`earnings-report-2026-11-07.md`](earnings-report-2026-11-07.md) 第 1、2 节、[`earnings-report-2026-11-10.md`](earnings-report-2026-11-10.md) 第 1 节与 [`earnings-report-2026-11-11.md`](earnings-report-2026-11-11.md) 第 1、2 节。每条都给出「怎么验」。
 
 | # | 真实攻击面（公开实证） | 本方案控制点 | 模块 | 验收方式 |
 | --- | --- | --- | --- | --- |
@@ -164,14 +164,18 @@
 | 20 | 🆕🆕🆕 **Anthropic 对 STDIO 架构缺陷明确「Won't Be Patched」（11 月，OX Security）— 责任被正式下沉到每个集成方**：`CVE-2026-30615`（Windsurf 零点击 RCE，CVSS 8.0）等 **12+ 同类 CVE**；提示注入静默改写 `mcp.json` → 注册攻击者 STDIO server → 零工具调用/零审批/零模型参与即在工具列表出现前执行；根因在官方 SDK `StdioServerParameters` 对 user-controllable `command`/`args` 不中性化直接 spawn，影响 **Python/TS/Java/Rust 官方 SDK 累计 1.5 亿+ 下载**；**Anthropic / Google / Microsoft 定性「spec-conformant / by design」拒绝修复**；唯一已知缓解 = STDIO command allowlist（`npx`/`uvx`/`python`/`node`/`docker`/`deno`）**且非 SDK 默认**。生态量化：AgentSeal 16,000+ server（1808 个中 66% 有安全发现 / 427 critical）、Endor Labs 2,614 实现中 82% 路径穿越 / 67% 代码注入 | STDIO `command`+`args` 允许列表 + 字符中性化 + 子进程最小权限；**配置文件完整性快照 / 工具描述快照比对 + 安装前只读审计**；不信任「升级官方 SDK」；客户端连接路径 argv 启动（V1.66）+ **解析后真实 IP 校验与 IP 固定**（V1.67，防 DNS rebinding / SSRF） | `mcp-core`（沙箱/子进程）+ `mcp-governance`（准入策略/配置基线）+ `mcp-monitor` + [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)（`McpConnectPathGuard` + 🆕 `McpResolvedIpGuard`） | `mcp.json` 未经审批被改写必须告警并拒绝加载；非 allowlist 的 `command`（如 `powershell` / 绝对路径二进制）必须拒绝；白名单主机解析到 `127.0.0.1`/`169.254.169.254` 必须拒绝且连接必须使用已固定的 IP |
 | 21 | 🆕🆕🆕 **`CVE-2026-123811`（11-10，CVSS 7.5）Dynatrace MCP Server `--http` 模式无鉴权 / 无会话校验 / 无 Host+Origin 防护**：网络可达者（含浏览器经 DNS rebinding）直接发 JSON-RPC `tools/call` → `execute_dql` 读走日志、安全事件、用户会话与可能含的 token，`create_dynatrace_notebook` 留带恶意链接的 tenant-visible notebook；官方缓解第一条即**停用 `--http`、改回 stdio 或只绑 127.0.0.1 并前置带 Host/Origin allowlist 的认证反代** | 传输层默认 loopback、非 loopback 必须鉴权、Host/Origin allowlist 强校验、最小 scope 与凭据轮换、`execute_dql` 类工具纳入审计；STDIO 启动命令与参数 allowlist（V1.68） | `mcp-gateway` + `mcp-auth` + `mcp-monitor` + 🆕 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md) | 未鉴权 `initialize`/`tools/call` 必须 401；伪造 Host 必须 403；带 `--http` 或 `0.0.0.0` 的启动命令必须被拒（14 攻击用例自检可现场跑） |
 | 22 | 🆕🆕🆕 **`CVE-2026-123812`（11-10，CVSS 3.7）写工具漏审批门 + 缺 `destructiveHint` 注解**：`create_dynatrace_notebook` 未调 `requestHumanApproval`，间接 prompt injection 静默植入含攻击者 DQL 的 notebook，租户用户打开即执行；**同一 server 的 `send_event` 因有审批门挡住了同一条攻击链** → HITL 第一次拿到「同体内一正一反」实证 | 所有写工具强制 HITL（审批在 server 不在 model、AI 应用不能自批）、注册期校验 `destructiveHint` / `readOnlyHint` 元数据、工具描述变更须重新审批、审计只存字段名 | `mcp-registry`（注册期准入）+ `mcp-governance`（HITL）+ `mcp-audit` | 无 `approvalId` 的写工具调用必须 DENY；缺 `destructiveHint` 的副作用工具不予注册；审批记录须覆盖工具描述每一版 |
+| 23 | 🆕🆕🆕 **11-11 INITE Atlas 全生态普查 + Microsoft Agent Framework 1.25.0：注解谎报与「目录漂移使旧审批失效」**：[INITE 11-11 实测 11,393 个 server](https://inite.ai/en/atlas/mcp/report) —— **25%（2,222）缺 read-only/destructive hint**、**4%（326）删除/发送/支付却标非破坏性**、**23%（2,051）免登录仍会改数据**、47% 参数无描述；[OpenAI 要求三 hint 显式 boolean、Anthropic 用 hint 决定 auto-permissions 且拒 catch-all](https://dawloom.com/blog/submit-mcp-server-to-chatgpt-and-claude)；[MS Agent Framework Python 1.25.0（11-09）](https://www.cloudproinc.com.au/index.php/2026/11/11/microsoft-agent-framework-mcp-approval-policies-governance-guide) 上线 callable discovery approval policies，并明确「**metadata ... an input to your policy rather than the final security decision**」、要求 **catalogue 刷新后复验审批** → hint 只是策略输入，**上游改了描述而旧审批仍有效 = 静默越权** | 注册期三 hint 显式 / 矛盾 / 谎报只读 / openWorld 谎报 / catch-all 五类硬校验 + **服务端独立定级不采信声明** + 审批流水号绑定 `tool + 元数据指纹 + subject` + catalogue 变更即作废 + READ 才免确认、WRITE/DESTRUCTIVE **fail-closed 审批门** + override 留痕且 DESTRUCTIVE 禁 override + append-only 脱敏审计 | `mcp-registry` + `mcp-governance` + `mcp-auth` + `mcp-audit` + 🆕 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md) | 把 `delete_customer` 三个 hint 全改成只读友好值仍须定级 DESTRUCTIVE；审批后改写工具描述、用旧流水号调用必须 DENY；无 approver / approver 抛异常必须 DENY（**32 断言自检可现场跑**） |
+| 24 | 🆕🆕🆕 **Siemens SSA-710379（11-10）Mendix Studio Pro 11 内置 MCP Server 双 CVE —「绑 localhost 就安全」被官方否掉**：[`CVE-2026-112136`](https://severitydaily.com/siemens-mendix-studio-pro-mcp-server-cve-2026-112136-8-8-cvss-3-1-ui-r-vs-9-2-cvss-4-0-ui-n-at-p-cwe-1327-loopback-port-7782-ssa-710379-v11-16-0-v11-12-7-cve-2026-112137-csrf-origin-content-type) CWE-1327 未限制 HTTP listener 到 loopback（CVSS 3.1 **8.8** / 4.0 **9.2**，端口 7782）；`CVE-2026-112137` CWE-352 未校验 `Content-Type` 与 `Origin`（5.4 / 5.1）→ 恶意网页让开发者浏览器向本地 server 发请求；与 `CVE-2026-123811`（Dynatrace `--http` 无鉴权 / Host+Origin）、[Adversa 11 月榜](https://adversa.ai/blog/top-mcp-security-resources-november-2026)（server-everything wildcard CORS + `get-env` 整包环境变量、Basic Memory DNS rebinding、FastMCP `HostOriginGuardMiddleware` **默认关闭**）**同构** | 启动期只绑 loopback、拒 `0.0.0.0` / `::`、非 loopback 必须显式 opt-in **且**强制鉴权；请求期 Content-Type 严格 `application/json`、Origin / Host 白名单 + `X-Forwarded-Host` 一致、禁 wildcard CORS、未鉴权 401、禁 `get-env` 类工具 | `mcp-gateway` + `mcp-auth` + 🆕 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)（与 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、[`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md) 构成出站 / 入站 / 子进程三层） | 提交 `text/plain` / 缺 Origin / 伪造 Host / `Access-Control-Allow-Origin: *` 必须全拒；正常 `application/json; charset=utf-8` 与本地 CLI 无 Origin 必须通过（**对照组不得误杀**，30 断言自检可现场跑） |
 
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理是安全的**。上述 **22 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **24 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
 > **2026-11-10 更新依据**：Dynatrace MCP Server 双 CVE 用**同一个 server 的一正一反**证明审批门真实生效（有门挡住 / 漏门成入口），且 `--http` 无 Host+Origin 防护再次把攻击面下沉到传输层；UiPath×Google Cloud 把「治理」写成受监管行业允许 MCP 接入的**前提**，浙商证券把 7 项法规写成**强制测评依据清单** → 治理从「定价权」升级为「**准入权 / 法律责任分界线**」。
+>
+> **2026-11-11 更新依据**：INITE Atlas 当日 11,393 个 server 普查把「注解谎报/缺失」从个案变成**可量化的生态基线**（25% 缺 hint / 4% 谎报 / 23% 免登录改数据），Microsoft Agent Framework 1.25.0 与 Google Cloud Agent Registry 把「发现期逐工具审批 / 逐工具 IAM」做成产品层并明确**元数据不可信、目录刷新须复验** → 治理的起点被推回「**工具注册进来的那一刻**」；Siemens Mendix 双 CVE 则从商业 IDE 侧证明「绑 localhost」不是安全边界。
 
 ### 📋 采购方视角补充：合规文档也成了评估项（V1.67）
 
@@ -228,4 +232,30 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.68 (2026-11-10) · 攻击面 20 → 22 类_
+### 🆕 V1.69 补充：注册期注解完整性验收列（11-11）
+
+[INITE Atlas 11-11 全生态普查](https://inite.ai/en/atlas/mcp/report) 给出可引用的现状风险数字：**11,393** 个 server 中 **25% 工具缺 read-only/destructive hint**、**4% 删除/发送/支付却标非破坏性**、**23% 免登录仍改数据**、47% 参数无描述、52% 免登录即响应。[PowerDuck](https://www.powerduck.com/blog/mcp-tool-annotations-readonly-destructive) 与 [CSDN 信任模型](https://devpress.csdn.net/aibjcy/6af303c1e5f4ca4eff8fa677.html) 同时写明「**hints, not enforcement**」→ 采购文件应把「工具注册期」而非「客户端确认框」写成验收位。
+
+| # | 注册期验收项 | 控制点 | 现场验收方式 |
+| --- | --- | --- | --- |
+| 1 | 三 hint 显式 boolean | 缺一拒收；缺 hint 按最坏档推断 | 提交缺 `destructiveHint` 的工具定义必须 REJECT |
+| 2 | 声明自相矛盾 | `readOnlyHint && destructiveHint` 拒收 | 提交矛盾声明必须 REJECT |
+| 3 | **谎报只读** | 副作用动词（中英文）与只读声明冲突即拒 | `delete_customer` 标 `readOnlyHint:true` 必须 REJECT |
+| 4 | openWorld 谎报 | 只读 + `openWorldHint:true` 即拒 | 「读远程发票」标只读必须 REJECT |
+| 5 | catch-all 工具 | `api_request` 类 + `method` 参数拒收（Anthropic 目录规则） | 通用请求工具必须 REJECT |
+| 6 | 整包环境变量导出 | `get-env` 默认禁用 | 调用必须 DENY |
+| 7 | **独立风险定级** | `classify()` 不采信声明 hint | 三个 hint 全改成只读友好值，删除类仍须 DESTRUCTIVE |
+| 8 | 服务端身份 | 不接受模型自称 `role=admin` | 无 `subject` 调用必须 DENY |
+| 9 | 写工具审批流水号 | 绑定 `tool + 指纹 + subject` | 无 / 伪造流水号必须 DENY |
+| 10 | **审批器 fail-closed** | 缺失 / 异常 / 返回 false 一律拒 | 注入抛异常的 approver 必须 DENY |
+| 11 | **目录漂移复验** | 元数据任一变更即作废旧审批（MS 1.25.0） | 审批后改描述、用旧流水号调用必须 DENY |
+| 12 | override 管控 | DESTRUCTIVE 禁 override；WRITE 须带理由并记「谁 / 绕过哪条策略 / 理由 / 结果」 | 无理由或破坏性 override 必须 DENY |
+| 13 | 审计完整性 | append-only + 密钥值脱敏 + **拒绝分支同样留痕** | 传 `api_key=sk-live-...` 后审计不得出现明文 |
+| 14 | 传输层配套 | 见第 24 类 | `examples/local-listener-guard/` 17 攻击用例现场跑 |
+
+> 完整矩阵（四家规则对位 / 竞品差异化 / 买方必问 5 问 / 24-48-96 小时行动清单 / 三档报价）见 [`tool-annotation-integrity-governance-2026-11-11.md`](tool-annotation-integrity-governance-2026-11-11.md)。
+> ⚠️ **诚实边界**：14 项对应的是 `examples/` 下**参考实现**，尚未接入 `mcp-registry` 主模块；副作用动词表为启发式，fingerprint 只覆盖元数据不覆盖实现代码，基于数据分类的差异化策略本版只留字段、未实现引擎。INITE 百分比为描述与 hint 的公开自动比对，**不代表已被利用**。
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.69 (2026-11-11) · 攻击面 22 → 24 类_
