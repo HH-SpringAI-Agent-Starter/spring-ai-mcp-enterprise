@@ -133,7 +133,7 @@
 
 ---
 
-## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.69 · 2026-11-11）
+## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.70 · 2026-11-12）
 
 > **用途**：投标「威胁建模 / 安全设计」章节、售前白皮书一页纸、安全复测对照表。
 > **证据**：Wiz.io 90 天 AI 基础设施蜜罐研究 + 11-03~11-06 NVD 新 CVE 波 + Gartner 首个 AI Agent Management MQ + **11-08 官方参考服务器七 CVE + 11-10 Dynatrace 双 CVE + 11-10 Siemens Mendix 双 CVE + 11-11 INITE 全生态普查**，全部为**公开实证、不含推测**，详见
@@ -166,16 +166,40 @@
 | 22 | 🆕🆕🆕 **`CVE-2026-123812`（11-10，CVSS 3.7）写工具漏审批门 + 缺 `destructiveHint` 注解**：`create_dynatrace_notebook` 未调 `requestHumanApproval`，间接 prompt injection 静默植入含攻击者 DQL 的 notebook，租户用户打开即执行；**同一 server 的 `send_event` 因有审批门挡住了同一条攻击链** → HITL 第一次拿到「同体内一正一反」实证 | 所有写工具强制 HITL（审批在 server 不在 model、AI 应用不能自批）、注册期校验 `destructiveHint` / `readOnlyHint` 元数据、工具描述变更须重新审批、审计只存字段名 | `mcp-registry`（注册期准入）+ `mcp-governance`（HITL）+ `mcp-audit` | 无 `approvalId` 的写工具调用必须 DENY；缺 `destructiveHint` 的副作用工具不予注册；审批记录须覆盖工具描述每一版 |
 | 23 | 🆕🆕🆕 **11-11 INITE Atlas 全生态普查 + Microsoft Agent Framework 1.25.0：注解谎报与「目录漂移使旧审批失效」**：[INITE 11-11 实测 11,393 个 server](https://inite.ai/en/atlas/mcp/report) —— **25%（2,222）缺 read-only/destructive hint**、**4%（326）删除/发送/支付却标非破坏性**、**23%（2,051）免登录仍会改数据**、47% 参数无描述；[OpenAI 要求三 hint 显式 boolean、Anthropic 用 hint 决定 auto-permissions 且拒 catch-all](https://dawloom.com/blog/submit-mcp-server-to-chatgpt-and-claude)；[MS Agent Framework Python 1.25.0（11-09）](https://www.cloudproinc.com.au/index.php/2026/11/11/microsoft-agent-framework-mcp-approval-policies-governance-guide) 上线 callable discovery approval policies，并明确「**metadata ... an input to your policy rather than the final security decision**」、要求 **catalogue 刷新后复验审批** → hint 只是策略输入，**上游改了描述而旧审批仍有效 = 静默越权** | 注册期三 hint 显式 / 矛盾 / 谎报只读 / openWorld 谎报 / catch-all 五类硬校验 + **服务端独立定级不采信声明** + 审批流水号绑定 `tool + 元数据指纹 + subject` + catalogue 变更即作废 + READ 才免确认、WRITE/DESTRUCTIVE **fail-closed 审批门** + override 留痕且 DESTRUCTIVE 禁 override + append-only 脱敏审计 | `mcp-registry` + `mcp-governance` + `mcp-auth` + `mcp-audit` + 🆕 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md) | 把 `delete_customer` 三个 hint 全改成只读友好值仍须定级 DESTRUCTIVE；审批后改写工具描述、用旧流水号调用必须 DENY；无 approver / approver 抛异常必须 DENY（**32 断言自检可现场跑**） |
 | 24 | 🆕🆕🆕 **Siemens SSA-710379（11-10）Mendix Studio Pro 11 内置 MCP Server 双 CVE —「绑 localhost 就安全」被官方否掉**：[`CVE-2026-112136`](https://severitydaily.com/siemens-mendix-studio-pro-mcp-server-cve-2026-112136-8-8-cvss-3-1-ui-r-vs-9-2-cvss-4-0-ui-n-at-p-cwe-1327-loopback-port-7782-ssa-710379-v11-16-0-v11-12-7-cve-2026-112137-csrf-origin-content-type) CWE-1327 未限制 HTTP listener 到 loopback（CVSS 3.1 **8.8** / 4.0 **9.2**，端口 7782）；`CVE-2026-112137` CWE-352 未校验 `Content-Type` 与 `Origin`（5.4 / 5.1）→ 恶意网页让开发者浏览器向本地 server 发请求；与 `CVE-2026-123811`（Dynatrace `--http` 无鉴权 / Host+Origin）、[Adversa 11 月榜](https://adversa.ai/blog/top-mcp-security-resources-november-2026)（server-everything wildcard CORS + `get-env` 整包环境变量、Basic Memory DNS rebinding、FastMCP `HostOriginGuardMiddleware` **默认关闭**）**同构** | 启动期只绑 loopback、拒 `0.0.0.0` / `::`、非 loopback 必须显式 opt-in **且**强制鉴权；请求期 Content-Type 严格 `application/json`、Origin / Host 白名单 + `X-Forwarded-Host` 一致、禁 wildcard CORS、未鉴权 401、禁 `get-env` 类工具 | `mcp-gateway` + `mcp-auth` + 🆕 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)（与 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、[`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md) 构成出站 / 入站 / 子进程三层） | 提交 `text/plain` / 缺 Origin / 伪造 Host / `Access-Control-Allow-Origin: *` 必须全拒；正常 `application/json; charset=utf-8` 与本地 CLI 无 Origin 必须通过（**对照组不得误杀**，30 断言自检可现场跑） |
+| 25 | 🆕🆕🆕 **11-11 AWS `mcp-gateway-registry` 双 CVE 链式提权 —— 注册中心自己成了攻击入口**：[公告 `2026-179-AWS` / `2026-180-AWS`](https://al-ice.ai/posts/2026/11/aws-mcp-gateway-registry-cve-2026-100307-125926-privesc-ssrf-november-2026) —— `CVE-2026-100307`（8.8）`/api/servers/*` 管理端点**只认证不授权**，低权限用户经 `POST /api/servers/groups/import` 把自己的 IdP group 映射到 `mcp-registry-admin`，**管理员身份按请求派生**、下次请求即生效、无需重新认证，随后可读走注册表中**读时解密**的 server 凭据与自定义 header；`CVE-2026-125926`（8.5）注册/修改 API 可把网关上游指向内网与**云实例元数据端点**并读回响应。**第一个洞发出的正是第二个洞所需的权限**。叠加 [`CVE-2026-109492`（Microsoft `mcp-gateway` IDOR / CWE-639，8.8）](https://radar.offseq.com/threat/cve-2026-109492-cwe-639-authorization-bypass-through-user-controlled-key-in-microsoft-mcp-gateway-792138926698577a)、`CVE-2026-125271`（操作名归一化错误致策略绕过）、[dev.to 横评](https://dev.to/kuldeep_paul/top-5-mcp-registry-tools-for-enterprise-ai-governance-2026-52ap)「Official MCP Registry 的 Access Control Model = **None**」 | **认证 ≠ 授权**：每个管理操作显式判 required permission；**组导入禁止写入任何特权 scope**（归一化后判 admin/root/superuser/policy）；**授权源独立、只读、不可变，绝不由注册表可写数据派生**；管理员身份**不隐含** `CREDENTIAL_READ`；凭据读取审计只记字段名；策略匹配前做操作名归一化 | `mcp-registry` + `mcp-auth` + `mcp-governance` + 🆕 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md) | 低权限主体调 `registerServer` 必须 DENY；`mcp-registry-admin` / `MCP_REGISTRY_ADMIN` / `mcp.registry.admin` 三种变形全 DENY；导入后授权集合引用与内容不变且不可变；bootstrapAdmin 主体读凭据必须 DENY；`get_user`/`GetUser`/`Get__User` 必须落到同一策略键（**45 断言自检可现场跑**） |
+| 26 | 🆕🆕🆕 **上游 SSRF 到内网 / 云元数据 + 「升级后存量未复验」**：`CVE-2026-125926` 允许把网关上游指向 `169.254.169.254` 等云元数据与内网服务；**官方修复边界更致命** —— 1.35.0 **只在注册 / 修改时校验上游，升级前已存储的 server 配置保持不变**，升级也不撤销已植入的 group 映射、不使已泄露凭据失效 → **打补丁 ≠ 清干净**，官方处置要求「逐个复查所有已注册 server 上游 + 回溯异常注册与变更日志」。对运维场景尤其危险：可观测 / 日志 / 自动化平台**本来就在内网**（对位 [广发 13327 目标第 7 条](http://gfjc.gf.com.cn/gyszjgg/13327.jhtml)「MCP 封装接入」）。同周 [fast-agent `102610` 11-11 复测](https://agentopsguide.com/fast-agent-vulnerability-cve-2026-102610) 再证「绑 localhost 就安全」不成立 | 上游仅 https、禁 userinfo / 反斜杠歧义，主机准入覆盖 loopback·私网·link-local·`169.254.169.254`·metadata 域·IPv6 ULA·十进制与八进制 IP 字面量；**重定向逐跳重校验 + Host/SNI 一致性**（兑现 V1.69 待办）；修改上游 = 重新注册并重签指纹；★ **升级 / 策略变更后全量复验存量**：重跑准入 + 配置指纹漂移比对 + 不通过即隔离 + **幂等** + append-only 留痕 | `mcp-gateway` + `mcp-registry` + `mcp-monitor` + 🆕 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)（与 [`connect-path-guard/`](../examples/connect-path-guard/README.md) 的 DNS 解析后真实 IP 校验叠加） | 14 个攻击 URL 全 DENY 且 `203.0.113.10` / 公网显式端口放行（**对照组不得误杀**）；同域相对路径重定向 ALLOW、跳到 `169.254.169.254` 或跨主机 DENY；带外污染一个已注册项 → `reverifyAll()` 第一次抓到并隔离、第二次不再重复报；⚠️ 主机判定为字面量检查，须与 DNS 解析后 IP 校验叠加 |
 
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **24 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **26 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
 > **2026-11-10 更新依据**：Dynatrace MCP Server 双 CVE 用**同一个 server 的一正一反**证明审批门真实生效（有门挡住 / 漏门成入口），且 `--http` 无 Host+Origin 防护再次把攻击面下沉到传输层；UiPath×Google Cloud 把「治理」写成受监管行业允许 MCP 接入的**前提**，浙商证券把 7 项法规写成**强制测评依据清单** → 治理从「定价权」升级为「**准入权 / 法律责任分界线**」。
 >
 > **2026-11-11 更新依据**：INITE Atlas 当日 11,393 个 server 普查把「注解谎报/缺失」从个案变成**可量化的生态基线**（25% 缺 hint / 4% 谎报 / 23% 免登录改数据），Microsoft Agent Framework 1.25.0 与 Google Cloud Agent Registry 把「发现期逐工具审批 / 逐工具 IAM」做成产品层并明确**元数据不可信、目录刷新须复验** → 治理的起点被推回「**工具注册进来的那一刻**」；Siemens Mendix 双 CVE 则从商业 IDE 侧证明「绑 localhost」不是安全边界。
+>
+> **2026-11-12 更新依据**：AWS 11-11 两份 Important 公告把「负责审批工具的注册中心」自己变成提权入口（`100307` 只认证不授权自授予 registry-admin + `125926` 上游 SSRF，**两洞构成一条链**），且官方明确**升级不清理存量配置 / 不撤销已植入映射 / 不使已泄露凭据失效** → 治理层必须先管住**自己的管理面**，并把「**存量全量复验 + 举证**」做成可验收服务；同期 Microsoft `mcp-gateway` IDOR 8.8 与操作名归一化策略绕过，把攻击面从「工具层」下沉到「注册表与网关自身」。完整 12 项验收清单见 [`registry-control-plane-self-defense-2026-11-12.md`](registry-control-plane-self-defense-2026-11-12.md)。
+
+### 📋 管理面 12 项验收列（V1.70，可直接进标书）
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 管理 API 认证 ≠ 授权，逐操作显式判权限 | 低权限主体调 `registerServer` → DENY |
+| 2 | 组导入禁止特权 scope（含大小写 / 分隔符变形） | 三种 `mcp-registry-admin` 变形全 DENY |
+| 3 | 授权源独立只读、不可由注册数据派生 | 导入后授权集合引用与内容不变、不可变 |
+| 4 | 管理员身份不隐含凭据读取 | bootstrapAdmin 读凭据 → DENY；`CREDENTIAL_READ` 主体 → ALLOW |
+| 5 | 凭据读取审计脱敏 | 审计快照搜索明文值 → 0 命中 |
+| 6 | 上游 scheme 与 userinfo 准入 | `https://api.example.com@169.254.169.254/` → DENY |
+| 7 | 上游主机准入（私网 / 元数据 / IPv6 / 进制伪装） | 14 攻击 URL 全 DENY，2 个合法公网对照放行 |
+| 8 | 重定向逐跳重校验 | 同域相对路径 ALLOW、跳内网 DENY |
+| 9 | Host / SNI 一致性 | 跨主机重定向 → DENY |
+| 10 | 修改上游 = 重新批准并重签指纹 | 改后指纹变化、旧批准不复用 |
+| 11 | ★ 存量全量复验（幂等 + 漂移 + 隔离） | 带外污染 → 首次抓到并隔离、二次不重复报 |
+| 12 | 操作名归一化 | `get_user` / `GetUser` / `Get__User` 同一策略键；`Export__Credentials` 命中 deny list |
+
+> 全部 12 项可在 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md) 现场跑：**27 攻击 + 10 对照 + 8 边界 = 45 断言**，其中 14 个是「只查 http/https 前缀」旧基线全漏的增量拦截。⚠️ 当前为 `examples/` 参考实现、**未接入 `mcp-registry` 主模块**；主机判定为字面量检查，须与 DNS 解析后真实 IP 校验叠加；**本框架不受上述 CVE 直接影响**。
+
 
 ### 📋 采购方视角补充：合规文档也成了评估项（V1.67）
 
@@ -258,4 +282,4 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.69 (2026-11-11) · 攻击面 22 → 24 类_
+_本清单随项目版本持续更新。最后更新: V1.70 (2026-11-12) · 攻击面 24 → 26 类_
