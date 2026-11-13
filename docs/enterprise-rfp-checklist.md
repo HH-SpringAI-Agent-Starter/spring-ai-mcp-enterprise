@@ -133,7 +133,7 @@
 
 ---
 
-## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.70 · 2026-11-12）
+## 🛡️ 售前一页纸：攻击面 → 治理模块（V1.71 · 2026-11-13）
 
 > **用途**：投标「威胁建模 / 安全设计」章节、售前白皮书一页纸、安全复测对照表。
 > **证据**：Wiz.io 90 天 AI 基础设施蜜罐研究 + 11-03~11-06 NVD 新 CVE 波 + Gartner 首个 AI Agent Management MQ + **11-08 官方参考服务器七 CVE + 11-10 Dynatrace 双 CVE + 11-10 Siemens Mendix 双 CVE + 11-11 INITE 全生态普查**，全部为**公开实证、不含推测**，详见
@@ -168,10 +168,12 @@
 | 24 | 🆕🆕🆕 **Siemens SSA-710379（11-10）Mendix Studio Pro 11 内置 MCP Server 双 CVE —「绑 localhost 就安全」被官方否掉**：[`CVE-2026-112136`](https://severitydaily.com/siemens-mendix-studio-pro-mcp-server-cve-2026-112136-8-8-cvss-3-1-ui-r-vs-9-2-cvss-4-0-ui-n-at-p-cwe-1327-loopback-port-7782-ssa-710379-v11-16-0-v11-12-7-cve-2026-112137-csrf-origin-content-type) CWE-1327 未限制 HTTP listener 到 loopback（CVSS 3.1 **8.8** / 4.0 **9.2**，端口 7782）；`CVE-2026-112137` CWE-352 未校验 `Content-Type` 与 `Origin`（5.4 / 5.1）→ 恶意网页让开发者浏览器向本地 server 发请求；与 `CVE-2026-123811`（Dynatrace `--http` 无鉴权 / Host+Origin）、[Adversa 11 月榜](https://adversa.ai/blog/top-mcp-security-resources-november-2026)（server-everything wildcard CORS + `get-env` 整包环境变量、Basic Memory DNS rebinding、FastMCP `HostOriginGuardMiddleware` **默认关闭**）**同构** | 启动期只绑 loopback、拒 `0.0.0.0` / `::`、非 loopback 必须显式 opt-in **且**强制鉴权；请求期 Content-Type 严格 `application/json`、Origin / Host 白名单 + `X-Forwarded-Host` 一致、禁 wildcard CORS、未鉴权 401、禁 `get-env` 类工具 | `mcp-gateway` + `mcp-auth` + 🆕 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)（与 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、[`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md) 构成出站 / 入站 / 子进程三层） | 提交 `text/plain` / 缺 Origin / 伪造 Host / `Access-Control-Allow-Origin: *` 必须全拒；正常 `application/json; charset=utf-8` 与本地 CLI 无 Origin 必须通过（**对照组不得误杀**，30 断言自检可现场跑） |
 | 25 | 🆕🆕🆕 **11-11 AWS `mcp-gateway-registry` 双 CVE 链式提权 —— 注册中心自己成了攻击入口**：[公告 `2026-179-AWS` / `2026-180-AWS`](https://al-ice.ai/posts/2026/11/aws-mcp-gateway-registry-cve-2026-100307-125926-privesc-ssrf-november-2026) —— `CVE-2026-100307`（8.8）`/api/servers/*` 管理端点**只认证不授权**，低权限用户经 `POST /api/servers/groups/import` 把自己的 IdP group 映射到 `mcp-registry-admin`，**管理员身份按请求派生**、下次请求即生效、无需重新认证，随后可读走注册表中**读时解密**的 server 凭据与自定义 header；`CVE-2026-125926`（8.5）注册/修改 API 可把网关上游指向内网与**云实例元数据端点**并读回响应。**第一个洞发出的正是第二个洞所需的权限**。叠加 [`CVE-2026-109492`（Microsoft `mcp-gateway` IDOR / CWE-639，8.8）](https://radar.offseq.com/threat/cve-2026-109492-cwe-639-authorization-bypass-through-user-controlled-key-in-microsoft-mcp-gateway-792138926698577a)、`CVE-2026-125271`（操作名归一化错误致策略绕过）、[dev.to 横评](https://dev.to/kuldeep_paul/top-5-mcp-registry-tools-for-enterprise-ai-governance-2026-52ap)「Official MCP Registry 的 Access Control Model = **None**」 | **认证 ≠ 授权**：每个管理操作显式判 required permission；**组导入禁止写入任何特权 scope**（归一化后判 admin/root/superuser/policy）；**授权源独立、只读、不可变，绝不由注册表可写数据派生**；管理员身份**不隐含** `CREDENTIAL_READ`；凭据读取审计只记字段名；策略匹配前做操作名归一化 | `mcp-registry` + `mcp-auth` + `mcp-governance` + 🆕 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md) | 低权限主体调 `registerServer` 必须 DENY；`mcp-registry-admin` / `MCP_REGISTRY_ADMIN` / `mcp.registry.admin` 三种变形全 DENY；导入后授权集合引用与内容不变且不可变；bootstrapAdmin 主体读凭据必须 DENY；`get_user`/`GetUser`/`Get__User` 必须落到同一策略键（**45 断言自检可现场跑**） |
 | 26 | 🆕🆕🆕 **上游 SSRF 到内网 / 云元数据 + 「升级后存量未复验」**：`CVE-2026-125926` 允许把网关上游指向 `169.254.169.254` 等云元数据与内网服务；**官方修复边界更致命** —— 1.35.0 **只在注册 / 修改时校验上游，升级前已存储的 server 配置保持不变**，升级也不撤销已植入的 group 映射、不使已泄露凭据失效 → **打补丁 ≠ 清干净**，官方处置要求「逐个复查所有已注册 server 上游 + 回溯异常注册与变更日志」。对运维场景尤其危险：可观测 / 日志 / 自动化平台**本来就在内网**（对位 [广发 13327 目标第 7 条](http://gfjc.gf.com.cn/gyszjgg/13327.jhtml)「MCP 封装接入」）。同周 [fast-agent `102610` 11-11 复测](https://agentopsguide.com/fast-agent-vulnerability-cve-2026-102610) 再证「绑 localhost 就安全」不成立 | 上游仅 https、禁 userinfo / 反斜杠歧义，主机准入覆盖 loopback·私网·link-local·`169.254.169.254`·metadata 域·IPv6 ULA·十进制与八进制 IP 字面量；**重定向逐跳重校验 + Host/SNI 一致性**（兑现 V1.69 待办）；修改上游 = 重新注册并重签指纹；★ **升级 / 策略变更后全量复验存量**：重跑准入 + 配置指纹漂移比对 + 不通过即隔离 + **幂等** + append-only 留痕 | `mcp-gateway` + `mcp-registry` + `mcp-monitor` + 🆕 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)（与 [`connect-path-guard/`](../examples/connect-path-guard/README.md) 的 DNS 解析后真实 IP 校验叠加） | 14 个攻击 URL 全 DENY 且 `203.0.113.10` / 公网显式端口放行（**对照组不得误杀**）；同域相对路径重定向 ALLOW、跳到 `169.254.169.254` 或跨主机 DENY；带外污染一个已注册项 → `reverifyAll()` 第一次抓到并隔离、第二次不再重复报；⚠️ 主机判定为字面量检查，须与 DNS 解析后 IP 校验叠加 |
+| 27 | 🆕🆕🆕 **11-10~11-12 pgEdge Postgres MCP Server 7 CVE —— 「read_only 声明」被「执行层」整批击穿**：`CVE-2026-126196`(8.1) `query_database` 在 read_only 连接上以**简单查询协议**经 `pgx Exec` 发出未识别语句，`SELECT 1; UPDATE ...` 分号堆叠 + 事务/会话状态改写，**池化会话残留让后续调用变可写**；`126197`(8.8) `pl-do` 把 JSON 参数插值进固定 dollar-quote 标签的 `DO` 块，`$mcp_custom_tool$`/`$mcp_args$` 提前闭合注入任意 SQL；`126199`(6.8)/`126198`(3.1) 只按**首个关键字**分类语句与写确认；`125322`(6.5) `count_rows` 的 `where` 接受声明表之外的子查询；`125321`(6.5) HTTP 身份取**最左 XFF**；`125320`(5.3) 不校验 `Origin` 可 DNS rebinding 读库。统一修 1.1.0，**7 个洞没有一个靠把 read_only 标签贴牢修好** | **声明层不得参与授权**：注解 / 工具描述 / 连接标签只作展示；执行层 6 控制点 —— 词法归一化后**全文**动词扫描 + 堆叠计数 + dollar-quote 逃逸 + 强制参数绑定 + 服务端 `SET TRANSACTION READ ONLY` + where 作用域 + 池化会话 RESET + Origin/Host/身份 + 执行环境净化 + 校验/实际路径同源 | `mcp-governance` + `mcp-gateway` + `mcp-auth` + 🆕 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md) | 把 `readOnlyHint=true` + `read_only` 连接标签配到 `SELECT * INTO stolen` 上必须 **DENY**；`SELECT 1; UPDATE ...`、`SELECT $mcp_custom_tool$; DROP...`、CTE 内 `UPDATE` 全 DENY；`SELECT 'DROP TABLE t; DELETE FROM t'`、`SELECT 'a;b'`、只读 CTE、dollar-quote 字符串必须 **ALLOW**（**对照组不得误杀**）。`79 断言自检可现场跑`，其中 20 条为旧基线漏掉的增量拦截 |
+| 28 | 🆕🆕🆕 **11-11 官方 `modelcontextprotocol/servers` 5 GHSA —— 「只读工具」照样执行代码 / 修复不完整 / 校验与执行不同源**：`GHSA-6hqx-gqrx-c5r2`(7.8) `mcp-server-git` **只读工具**信任仓库自身 `.git/config` 的 `core.fsmonitor` → 任意命令执行；`GHSA-q74p-4wrc-q7w6`(5.3) 对 10 月 `w766` 的 `validate_opened_repo()` **修复不完整**，`objects/info/alternates` + linked-worktree `common_dir` 混淆再次绕过 `--repository`；`GHSA-p9cv`(4.4) 验证后才替换 symlink（TOCTOU）读越界文件；`GHSA-f9hh`(3.1) `robots.txt` 校验路径 `//private` 与实际抓取 `/private` 规范化不一致；`GHSA-3rxj`(3.1) SSRF 分类器把 IPv6 site-local `fec0::/10` 误判 public（同源还有 `66qx` NAT64 前缀、`v38p` IDNA 解析不一致、`3jqg` 重定向不复核 robots） | 只读工具**执行环境净化**（禁加载目标仓库/工作区自带可执行配置与 hook）；修复须对历史绕过形态做**回归复验**而非只验本轮补丁；校验路径与实际执行路径**同源**且校验后不得重新解析；解析后真实 IP 分类覆盖 IPv6 site-local / NAT64 / 十进制·八进制字面量 | `mcp-core`（沙箱）+ `mcp-governance`（准入/基线）+ `mcp-registry`（存量复验）+ 🆕 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)（CP5/CP6）+ [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md) + [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md) | 只读工具处理的仓库内放恶意 `core.fsmonitor` 必须既不执行也不加载；`Disallow: /private` 下抓 `//private` 必须 DENY；`fec0::/10`、`64:ff9b::/96` 一律不得判为 public；跑一次 79 断言自检须含 8 条堆叠/逃逸载荷与 9 条合法只读对照 |
 
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **26 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **28 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
@@ -180,6 +182,8 @@
 > **2026-11-11 更新依据**：INITE Atlas 当日 11,393 个 server 普查把「注解谎报/缺失」从个案变成**可量化的生态基线**（25% 缺 hint / 4% 谎报 / 23% 免登录改数据），Microsoft Agent Framework 1.25.0 与 Google Cloud Agent Registry 把「发现期逐工具审批 / 逐工具 IAM」做成产品层并明确**元数据不可信、目录刷新须复验** → 治理的起点被推回「**工具注册进来的那一刻**」；Siemens Mendix 双 CVE 则从商业 IDE 侧证明「绑 localhost」不是安全边界。
 >
 > **2026-11-12 更新依据**：AWS 11-11 两份 Important 公告把「负责审批工具的注册中心」自己变成提权入口（`100307` 只认证不授权自授予 registry-admin + `125926` 上游 SSRF，**两洞构成一条链**），且官方明确**升级不清理存量配置 / 不撤销已植入映射 / 不使已泄露凭据失效** → 治理层必须先管住**自己的管理面**，并把「**存量全量复验 + 举证**」做成可验收服务；同期 Microsoft `mcp-gateway` IDOR 8.8 与操作名归一化策略绕过，把攻击面从「工具层」下沉到「注册表与网关自身」。完整 12 项验收清单见 [`registry-control-plane-self-defense-2026-11-12.md`](registry-control-plane-self-defense-2026-11-12.md)。
+>
+> **2026-11-13 更新依据**：pgEdge Postgres MCP Server 4 天内 7 个 CVE 把「**read_only 是声明不是边界**」钉死（简单查询协议堆叠 / dollar-quote 逃逸 / 首关键字分类 / where 跨表 / 最左 XFF / 缺 Origin），官方 `modelcontextprotocol/servers` 5 个 GHSA 同期证明「**只读工具照样执行代码**」（`core.fsmonitor`）与「**修复不完整**」（`q74p`）→ 三段式收口：注解不是安全边界（V1.69）→ 注册中心自己也不是（V1.70）→ **只读声明也不是（V1.71）**。买方侧 Swift Media 11-13 已把「MCP 网关 + 集中注册表 + per-agent scope + 注入过滤 + 可导出审计」写成 RFP 必选项，嘉信理财 11-12 上线 agentic MCP 却坚持**每笔交易人工确认** → 治理的验收口径从「有没有」变成「**能不能当场证明**」。完整 12 项执行层验收清单见 [`readonly-execution-boundary-2026-11-13.md`](readonly-execution-boundary-2026-11-13.md)。
 
 ### 📋 管理面 12 项验收列（V1.70，可直接进标书）
 
@@ -199,6 +203,33 @@
 | 12 | 操作名归一化 | `get_user` / `GetUser` / `Get__User` 同一策略键；`Export__Credentials` 命中 deny list |
 
 > 全部 12 项可在 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md) 现场跑：**27 攻击 + 10 对照 + 8 边界 = 45 断言**，其中 14 个是「只查 http/https 前缀」旧基线全漏的增量拦截。⚠️ 当前为 `examples/` 参考实现、**未接入 `mcp-registry` 主模块**；主机判定为字面量检查，须与 DNS 解析后真实 IP 校验叠加；**本框架不受上述 CVE 直接影响**。
+
+### 📋 执行层 12 项验收列（V1.71，可直接进标书）
+
+> 完整矩阵（买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72 小时行动清单）见
+> [`readonly-execution-boundary-2026-11-13.md`](readonly-execution-boundary-2026-11-13.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 声明层不参与授权（`readOnlyHint` / 描述 / 连接标签仅展示） | 全声明只读 + `SELECT ... INTO` → DENY；翻转声明字段，合法查询结果不变 |
+| 2 | 词法归一化后再分类（剥离注释/字符串/标识符/dollar-quote） | `/*x*/ VACUUM INTO` DENY；`SELECT 'DROP TABLE t; DELETE FROM t'` **ALLOW** |
+| 3 | 禁止多语句 / 简单查询协议 | `SELECT 1; UPDATE ...` DENY；尾分号 `select ... limit 10;` ALLOW |
+| 4 | dollar-quote 保留标签逃逸检测 | `SELECT $mcp_custom_tool$; DROP...` DENY；`$$a; b$$` ALLOW |
+| 5 | 修复完整性回归（对历史绕过形态复验） | 自检输出须含 `22 attack ... 20 incremental blocks over legacy baseline` |
+| 6 | 强制参数绑定 + 服务端只读事务（数据库侧另有最小权限只读角色） | 关闭 `paramsBound` 或 `readOnlyTransaction` → DENY |
+| 7 | `where` 参数不得引用声明表之外 | `count_rows(where="id IN (SELECT ... FROM other_table)")` → DENY |
+| 8 | 池化会话归还前 RESET / DISCARD ALL | 「前一条改 session、后一条复用连接」序列 → 拦下或状态已复位 |
+| 9 | 身份不取最左 XFF + Origin 白名单 + Host/Origin 一致 | 三种伪造/缺失场景全部 DENY |
+| 10 | 只读工具执行环境净化（禁加载仓库自带 `core.fsmonitor`/hook） | 恶意 `.git/config` 必须既不执行也不加载 |
+| 11 | 校验路径与实际路径同源 + 解析后 IP 分类完整 | `//private`、`fec0::/10`、`64:ff9b::/96`、进制伪装全 DENY |
+| 12 | fail-closed + 可举证（原因码可导出、审计脱敏） | 逐一关闭 6 个 CP，每次 DENY 且 `reasonCode` 精确对应 |
+
+> 全部 12 项可在 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md) 现场跑：
+> **22 攻击 + 9 对照 + 8 边界 = 79 断言**，其中 **20 条**是旧基线「看 `readOnlyAnnotation` +
+> 首关键字 SELECT/WITH 就放行」全漏的增量拦截。⚠️ 当前为 `examples/` **参考实现、未接入主模块**；
+> CP2 where 作用域 / CP3 会话状态 / CP4 身份来源 / CP5 环境净化 / CP6 路径 IP 以**执行上下文标志**
+> 表达，真实落地需接 JDBC/pgx 元数据、连接池 hook、可信代理头、DNS 解析后 IP 分类器；
+> **不得把示例当生产组件交付**；**本框架不受上述 CVE 直接影响**。
 
 
 ### 📋 采购方视角补充：合规文档也成了评估项（V1.67）
@@ -282,4 +313,4 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.70 (2026-11-12) · 攻击面 24 → 26 类_
+_本清单随项目版本持续更新。最后更新: V1.71 (2026-11-13) · 攻击面 26 → 28 类_
