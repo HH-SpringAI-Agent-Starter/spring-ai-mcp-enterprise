@@ -399,6 +399,31 @@
 > 全部 12 项可在 [`examples/result-field-guard/`](../examples/result-field-guard/README.md) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
 > ⚠️ 参考实现**未接入主模块**；敏感字段检测是词法归一化非语义解析、阈值是演示常量；**本框架不受上述 CVE 直接影响**。
 
+> **2026-11-18 更新依据**：IBM `CVE-2026-110278`（CVSS 7.4）per-server 身份转发配置被忽略 + 静态签名可重放，`CVE-2026-110279` 客户端 header 覆盖上游凭据，Impartner MCP「governed by existing permissions」+ 敏感字段隐去 → 边界推进到**身份传播面**（第七段）。完整 12 项身份面验收清单见 [`identity-propagation-boundary-2026-11-18.md`](identity-propagation-boundary-2026-11-18.md)。
+
+### 📋 身份传播面 12 项验收列（V1.75，可直接进标书）
+
+> 完整矩阵（12 项逐条 → 控制点 → 仓库真实文件 → 现场验收 / 买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72h）见
+> [`identity-propagation-boundary-2026-11-18.md`](identity-propagation-boundary-2026-11-18.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 声明 block 字段确实未转发（CP1） | 配 email=block、任务请求 email → fail-closed 拒绝，上游抓包无 email |
+| 2 | 字段最小化（CP2） | 只需 userId 却携带 email/groups → 仅下发 userId，审计记 stripped |
+| 3 | 拒绝静态/缺失签名（CP3） | 固化 token → 拒绝，返回 STATIC_OR_MISSING_SIGNATURE |
+| 4 | 签名新鲜度窗口（CP3） | 901 秒前时间戳 → 拒绝；窗口内 → 放行 |
+| 5 | nonce 防重放（CP3） | 同一签名二次调用 → 第二次 REPLAYED_NONCE |
+| 6 | HMAC 完整性（CP3） | 改 userId 不改签名 → BAD_SIGNATURE |
+| 7 | header 覆盖防护（CP4） | 注入 X-User-Id / Authorization → HEADER_OVERRIDE |
+| 8 | 租户绑定（CP5） | tenant-A 身份调 tenant-B server → TENANT_MISMATCH |
+| 9 | 脱敏 append-only 审计（CP6） | 审计无明文 email、groups 只记数量、历史不可回改 |
+| 10 | 未知 server 默认拒绝 | ghost-server → UNKNOWN_SERVER |
+| 11 | 无认证身份默认拒绝 | identity=null → EMPTY_IDENTITY |
+| 12 | 不得劣于旧基线 | legacyBaseline 放行的 3 条攻击全拦；`java McpIdentityPropagationGuard` → **15 断言 / 0 误杀** |
+
+> 全部 12 项可在 [`examples/identity-propagation-guard/`](../examples/identity-propagation-guard/README.md) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
+> ⚠️ 参考实现**未接入主模块**；示例密钥硬编码、进程内 nonce 去重、词法白名单为演示约束；**本框架不受上述 CVE 直接影响**。
+
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.74 (2026-11-17) · 攻击面 32 → 34 类_
+_本清单随项目版本持续更新。最后更新: V1.75 (2026-11-18) · 攻击面 34 → 36 类_
