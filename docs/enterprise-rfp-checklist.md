@@ -180,7 +180,7 @@
 | 34 | 🆕🆕 **11-12 IBM ContextForge `CVE-2026-110279`（8.1，修 1.1.1）+ 企业 AI 控制面五原语 —— 「身份覆盖与动作级授权」**：[`110279`](https://echeloncyber.com/intelligence/entry/cyber-intelligence-weekly-november-15-2026-our-take-on-three-things-you-need-to-know) 特制 HTTP header 覆盖网关发往上游的凭据，破坏用户/应用/agent 身份隔离与审计准确性，官方临时缓解=在反代剥离 `X-Upstream-Authorization`；[企业 AI 控制面五原语](https://agenticreview.co/posts/enterprise-ai-control-plane-defined-for-agentic-workforces-running-mcp-servers-a)（11-16）：scoped credentials / 每次工具调用运行时策略 / 单一治理注册表 / 可审计归因 / **动作级 RBAC**（「权限给到动作，不是给到工具」）；[Schwab $13.33T 受控门复盘](https://twarx.com/research/schwab-mcp-server-agentic-write-access)（机构自有 IdP 发 token、读写分 scope、prepare→带外确认、记动作不记聊天） | 上游凭据由网关指定、禁请求头覆盖（反代剥离覆盖头）+ 身份来源不用最左 XFF；运行时策略在**每次工具调用**执行、动作级 scope（`GITHUB_MERGE_PR` 与 `GITHUB_DELETE_REPO` 分权）；机构自有授权服务器 + 工具目录 + 审计轨迹，读写工具分离、带外确认、记动作不记聊天 | `mcp-auth` + `mcp-gateway` + `mcp-governance` + `mcp-audit` + [`examples/gate-orchestration/`](../examples/gate-orchestration/README.md) | 注入特制 upstream auth header → 上游身份仍为网关指定值、审计身份不被改写；动作级 scope：允许 `GITHUB_CREATE_PR`/`MERGE_PR` 但拒 `DELETE_REPO`（组级一刀切会误杀）；运行时改 scope 下一次调用即生效、旧审批不继承 |
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **34 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **38 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)、🆕 **会话 / 传输绑定面守卫**见 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
@@ -426,4 +426,31 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.75 (2026-11-18) · 攻击面 34 → 36 类_
+> **2026-11-20 更新依据**：`CVE-2026-132121`（Supergateway stdio↔WS 无 Origin 校验，恶意网页跨站 WebSocket 劫持本机 MCP 网关，PoC 12/12 runs 外传本地文件）+ `CVE-2026-131857`（prototype-inherited sessionId 打崩网关）+ `CVE-2026-130007`（11-19 NVD，k8s-mcp-server `POST /message` 无 authorization/Origin 即派发工具、read-only 默认关闭，修 1.1.0）+ `CVE-2026-48710` BadHost（Host 注入 `?` 使 URL 重解析边界漂移，MCP 免鉴权 OAuth discovery 端点放大）+ `CVE-2026-115563`（Python SDK OAuth 凭据发给 server 自选 AS，升级后须显式 `issuer=`）→ 边界推进到**会话 / 传输绑定面**（第八段）。完整 12 项会话面验收清单见 [`session-transport-binding-boundary-2026-11-20.md`](session-transport-binding-boundary-2026-11-20.md)。
+
+### 📋 会话 / 传输绑定面 12 项验收列（V1.76，可直接进标书）
+
+> 完整矩阵（12 项逐条 → 控制点 → 仓库真实文件 → 现场验收 / 买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72h）见
+> [`session-transport-binding-boundary-2026-11-20.md`](session-transport-binding-boundary-2026-11-20.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 未认证派发第一道门拒绝（CP5a） | principal=null 非握手调用 → UNBOUND_LISTENER |
+| 2 | prototype-inherited sessionId 拒绝（CP1） | `__proto__.sessionId` / `constructor.prototype.sid` → INHERITED_SESSION |
+| 3 | sessionId 服务端签发 + 篡改/未注册拒绝（CP1） | `s-deadbeef-1` 或改签名 → FORGED_SESSION |
+| 4 | 会话绑定 principal（CP1） | alice 会话配 mallory 主体 → SESSION_PRINCIPAL_MISMATCH |
+| 5 | 握手必带 Origin，缺/`null` 拒绝（CP2） | 无 Origin / `Origin: null` → DENY |
+| 6 | Origin 白名单且与会话绑定一致（CP2） | 跨站 `https://malicious.page` WS → ORIGIN_NOT_ALLOWED |
+| 7 | Host 逐字符 RFC 校验（CP3） | `Host: foo?/admin` → BAD_HOST；合法域名:端口 → ALLOW |
+| 8 | IPv6 Host 不误杀（CP3 对照） | `[::1]:8080` → ALLOW |
+| 9 | 凭据无 issuer 拒绝（CP4） | 有凭据无 issuer → ISSUER_UNBOUND |
+| 10 | issuer 非预期授权服务器拒绝（CP4） | `issuer=https://attacker.as` → ISSUER_MISMATCH |
+| 11 | 只读会话禁写工具（CP5） | 只读 session 调写工具 → WRITE_NOT_PERMITTED |
+| 12 | 不得劣于旧基线 + 脱敏审计（CP6） | legacyBaseline 放行的 6 条全拦；`java McpSessionTransportBindingGuard` → **26 断言 / 0 误杀** |
+
+> 全部 12 项可在 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
+> ⚠️ 参考实现**未接入主模块**；示例密钥硬编码、会话表进程内、Host/Origin 字面量校验为演示约束；**本框架不受上述 CVE 直接影响**。
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.76 (2026-11-20) · 攻击面 36 → 38 类_
