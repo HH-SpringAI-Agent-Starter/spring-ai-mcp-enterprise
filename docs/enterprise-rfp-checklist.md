@@ -180,7 +180,7 @@
 | 34 | 🆕🆕 **11-12 IBM ContextForge `CVE-2026-110279`（8.1，修 1.1.1）+ 企业 AI 控制面五原语 —— 「身份覆盖与动作级授权」**：[`110279`](https://echeloncyber.com/intelligence/entry/cyber-intelligence-weekly-november-15-2026-our-take-on-three-things-you-need-to-know) 特制 HTTP header 覆盖网关发往上游的凭据，破坏用户/应用/agent 身份隔离与审计准确性，官方临时缓解=在反代剥离 `X-Upstream-Authorization`；[企业 AI 控制面五原语](https://agenticreview.co/posts/enterprise-ai-control-plane-defined-for-agentic-workforces-running-mcp-servers-a)（11-16）：scoped credentials / 每次工具调用运行时策略 / 单一治理注册表 / 可审计归因 / **动作级 RBAC**（「权限给到动作，不是给到工具」）；[Schwab $13.33T 受控门复盘](https://twarx.com/research/schwab-mcp-server-agentic-write-access)（机构自有 IdP 发 token、读写分 scope、prepare→带外确认、记动作不记聊天） | 上游凭据由网关指定、禁请求头覆盖（反代剥离覆盖头）+ 身份来源不用最左 XFF；运行时策略在**每次工具调用**执行、动作级 scope（`GITHUB_MERGE_PR` 与 `GITHUB_DELETE_REPO` 分权）；机构自有授权服务器 + 工具目录 + 审计轨迹，读写工具分离、带外确认、记动作不记聊天 | `mcp-auth` + `mcp-gateway` + `mcp-governance` + `mcp-audit` + [`examples/gate-orchestration/`](../examples/gate-orchestration/README.md) | 注入特制 upstream auth header → 上游身份仍为网关指定值、审计身份不被改写；动作级 scope：允许 `GITHUB_CREATE_PR`/`MERGE_PR` 但拒 `DELETE_REPO`（组级一刀切会误杀）；运行时改 scope 下一次调用即生效、旧审批不继承 |
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **38 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)、🆕 **会话 / 传输绑定面守卫**见 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **40 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)、🆕 **会话 / 传输绑定面守卫**见 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md)、🆕 **执行环境隔离面守卫**见 [`examples/execution-environment-guard/`](../examples/execution-environment-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
@@ -453,4 +453,31 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.76 (2026-11-20) · 攻击面 36 → 38 类_
+> **2026-11-22 更新依据**：MCPHub `CVE-2026-79748`（CVSS 9.9，非管理员注册 `command=/bin/sh` 立即执行 + edit 端点无归属校验）+ Hermes Agent `GHSA-p22p-9ph6-gmrh`（沙箱 env 文件反向穿透注入 `LD_PRELOAD` 触达 provider keys）+ Gortex `62964`/yt-mcp `75612`/DOMShell `75518`（读写路径不一致 + `readOnlyHint` 说谎）+ MCP Python SDK `CVE-2026-52869`（11-20 VulnCheck 在野，仅凭 session_id 路由不校验同一认证客户端、共享 OAuth client 无 subject）→ 边界推进到**执行环境隔离面**（第九段）。完整 12 项执行环境面验收清单见 [`execution-environment-boundary-2026-11-22.md`](execution-environment-boundary-2026-11-22.md)。
+
+### 📋 执行环境隔离面 12 项验收列（V1.77，可直接进标书）
+
+> 完整矩阵（12 项逐条 → 控制点 → 仓库真实文件 → 现场验收 / 买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72h）见
+> [`execution-environment-boundary-2026-11-22.md`](execution-environment-boundary-2026-11-22.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 绝对路径逃逸 confinement root 拒绝（读写同查，CP1） | `/etc/passwd` → ESCAPE_ABSOLUTE_PATH |
+| 2 | `..` 路径遍历拒绝（CP1） | `../secrets.txt` → ESCAPE_PATH_TRAVERSAL |
+| 3 | 符号链接逃逸拒绝（CP1） | `link/config` + symlink 集合 → ESCAPE_SYMLINK |
+| 4 | 路径控制字符拒绝（CP1） | `report.csv .png` → ESCAPE_CONTROL_CHAR |
+| 5 | 命令 allowlist + 解释器直执拒绝（CP2） | `/bin/sh`/`bash` → CMD_INTERPRETER；`curl` → CMD_NOT_ALLOWLISTED |
+| 6 | argv shell 元字符拒绝（CP2） | argv `x; rm -rf /` → CMD_SHELL_META |
+| 7 | env 危险键拒绝（CP3） | `LD_PRELOAD`/`DYLD_INSERT_LIBRARIES` → ENV_DANGEROUS_KEY |
+| 8 | env 源头白名单 + 值中命令替换拒绝（CP3） | 源 `/tmp/agent.env` → ENV_UNTRUSTED_SOURCE；`$(curl evil)` → ENV_INJECTION_VALUE |
+| 9 | 服务端独立定级：只读声明不参与授权（CP4） | 写动词标 `readOnlyHint:true` → READ_ONLY_LIE |
+| 10 | 写动词必须有审批令牌（CP4） | 写动词无令牌 → WRITE_TIER_NEEDS_APPROVAL |
+| 11 | 会话按 issuer+subject 绑定（CP5） | 无 subject → SUBJECT_UNBOUND；共享 client 用 clientId 当 subject → SHARED_CLIENT_NO_SUBJECT |
+| 12 | 不得劣于旧基线 + 脱敏审计（CP6） | 旧基线放行的 20 条全拦；`s3cr3t-value`/原始 subject 不落审计；`java McpExecutionEnvironmentGuard` → **26 断言 / 0 误杀** |
+
+> 全部 12 项可在 [`examples/execution-environment-guard/`](../examples/execution-environment-guard/README.md) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
+> ⚠️ 参考实现**未接入主模块**；策略硬编码、符号链接集合模拟、单进程审计表为演示约束；**本框架不受上述 CVE 直接影响**。
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.77 (2026-11-22) · 攻击面 38 → 40 类_
