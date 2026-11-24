@@ -180,7 +180,7 @@
 | 34 | 🆕🆕 **11-12 IBM ContextForge `CVE-2026-110279`（8.1，修 1.1.1）+ 企业 AI 控制面五原语 —— 「身份覆盖与动作级授权」**：[`110279`](https://echeloncyber.com/intelligence/entry/cyber-intelligence-weekly-november-15-2026-our-take-on-three-things-you-need-to-know) 特制 HTTP header 覆盖网关发往上游的凭据，破坏用户/应用/agent 身份隔离与审计准确性，官方临时缓解=在反代剥离 `X-Upstream-Authorization`；[企业 AI 控制面五原语](https://agenticreview.co/posts/enterprise-ai-control-plane-defined-for-agentic-workforces-running-mcp-servers-a)（11-16）：scoped credentials / 每次工具调用运行时策略 / 单一治理注册表 / 可审计归因 / **动作级 RBAC**（「权限给到动作，不是给到工具」）；[Schwab $13.33T 受控门复盘](https://twarx.com/research/schwab-mcp-server-agentic-write-access)（机构自有 IdP 发 token、读写分 scope、prepare→带外确认、记动作不记聊天） | 上游凭据由网关指定、禁请求头覆盖（反代剥离覆盖头）+ 身份来源不用最左 XFF；运行时策略在**每次工具调用**执行、动作级 scope（`GITHUB_MERGE_PR` 与 `GITHUB_DELETE_REPO` 分权）；机构自有授权服务器 + 工具目录 + 审计轨迹，读写工具分离、带外确认、记动作不记聊天 | `mcp-auth` + `mcp-gateway` + `mcp-governance` + `mcp-audit` + [`examples/gate-orchestration/`](../examples/gate-orchestration/README.md) | 注入特制 upstream auth header → 上游身份仍为网关指定值、审计身份不被改写；动作级 scope：允许 `GITHUB_CREATE_PR`/`MERGE_PR` 但拒 `DELETE_REPO`（组级一刀切会误杀）；运行时改 scope 下一次调用即生效、旧审批不继承 |
 **可直接引用的签字结论**：
 
-> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **40 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)、🆕 **会话 / 传输绑定面守卫**见 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md)、🆕 **执行环境隔离面守卫**见 [`examples/execution-environment-guard/`](../examples/execution-environment-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
+> 本方案**不假设上游 SDK / 代理 / 工具声明是安全的**。上述 **42 类**攻击面全部在 **网关 / 注册中心 / 治理 / 租户 / 监控** 五层设有**相互独立**的控制点，任一层失效不会导致全局放行，且每一类都提供可复现的验收方式。参考实现见 [`examples/governance-hardening/`](../examples/governance-hardening/README.md)、告警规则见 [`examples/monitor-alert-rules/`](../examples/monitor-alert-rules/README.md)、工具入参文法见 [`examples/tool-input-grammar/`](../examples/tool-input-grammar/README.md)、连接路径与解析后 IP 校验见 [`examples/connect-path-guard/`](../examples/connect-path-guard/README.md)、STDIO 启动命令 allowlist 见 [`examples/stdio-command-allowlist/`](../examples/stdio-command-allowlist/README.md)、🆕 **注册期注解完整性与审批门**见 [`examples/tool-annotation-gate/`](../examples/tool-annotation-gate/README.md)、🆕 **本地监听器准入**见 [`examples/local-listener-guard/`](../examples/local-listener-guard/README.md)、🆕 **注册中心管理面自防护与存量复验**见 [`examples/registry-admin-guard/`](../examples/registry-admin-guard/README.md)、🆕 **只读执行层强制（声明层不参与授权）**见 [`examples/read-only-enforcement/`](../examples/read-only-enforcement/README.md)、🆕 **任务绑定确定性监视器（模型外执行门）**见 [`examples/task-bound-monitor/`](../examples/task-bound-monitor/README.md)、🆕 **结果 / 输出面守卫**见 [`examples/result-field-guard/`](../examples/result-field-guard/README.md)、🆕 **会话 / 传输绑定面守卫**见 [`examples/session-transport-binding-guard/`](../examples/session-transport-binding-guard/README.md)、🆕 **执行环境隔离面守卫**见 [`examples/execution-environment-guard/`](../examples/execution-environment-guard/README.md)，加固配置见 [`mcp-security-hardening-quickstart.md`](mcp-security-hardening-quickstart.md) 第 6 步。
 >
 > **2026-11-09 更新依据**：官方 `modelcontextprotocol/servers` 参考实现被一次性披露 7 个 CVE，且 Anthropic 对 STDIO 架构缺陷明确不修 —— 「升级官方依赖」不再是可用的缓解路径，**责任在集成方**。
 >
@@ -480,4 +480,33 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.77 (2026-11-22) · 攻击面 38 → 40 类_
+---
+
+> **2026-11-24 更新依据**：MCP **Java SDK 官方洞** `CVE-2026-34237` / `GHSA-hv2w-8mjj-jw22`（CVSS 6.1，`mcp-core` SSE / Streamable HTTP 下发 `Access-Control-Allow-Origin: *`，浏览器成中继读 SSE 首帧 session id 再跨域 POST；修 1.0.1/1.1.1/0.18.3，⚠️ 本项目核心依赖官方 SDK 须显式披露）+ Siemens Mendix `CVE-2026-112136`（8.8）/ `112137`（5.4）（远程交互 + 浏览器 CSRF 穿透 loopback）+ mcp-server-kubernetes `CVE-2026-134817`（7.1，CWE-88，dash 前缀位置操作数被当 kubectl flag）→ 边界推进到**浏览器 / 出站响应面 + 本地绑定面**（第十段，首次守出站方向）。完整 12 项验收清单见 [`browser-response-boundary-2026-11-24.md`](browser-response-boundary-2026-11-24.md)。
+
+### 📋 浏览器 / 出站响应面 12 项验收列（V1.78，可直接进标书）
+
+> 完整矩阵（12 项逐条 → 控制点 → 仓库真实文件 → 现场验收 / 买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72h）见
+> [`browser-response-boundary-2026-11-24.md`](browser-response-boundary-2026-11-24.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 通配 `ACAO: *` 拒绝，SSE/Streamable 双传输（CP1） | `acao("*")` → CORS_WILDCARD |
+| 2 | allow-credentials 不得配通配（CP1） | `acao("*")+creds` → CORS_CREDENTIALS_WITH_WILDCARD |
+| 3 | ACAO 非 allowlist / 后缀欺骗拒绝（CP1） | `evil.com`、`app.example.com.evil.com` → CORS_ORIGIN_NOT_ALLOWED |
+| 4 | session id 必须绑定签发 origin（CP2） | `sid+issued(null)` → SESSION_ORIGIN_UNBOUND |
+| 5 | session 句柄不得跨域可读（CP2） | `issued(app)+acao(admin)` → SESSION_ID_EXPOSED_CROSS_ORIGIN |
+| 6 | 只绑 loopback，非 loopback/文档 IP 拒绝（CP3） | `0.0.0.0`/`::`/`192.168.1.10` → BIND_PUBLIC_INTERFACE |
+| 7 | 不可解析绑定地址 fail-closed（CP3） | `not-a-host.invalid` → BIND_UNRESOLVABLE |
+| 8 | dash 前缀位置操作数拒绝（CP4） | `--filename=/etc/passwd`/`-n` → ARG_FLAG_LIKE |
+| 9 | 改动类 POST 缺 Origin 拒绝（CP5） | `origin(null)` → CSRF_ORIGIN_MISSING |
+| 10 | Origin 跨源拒绝（CP5） | `origin("https://evil.com")` → CSRF_ORIGIN_MISMATCH |
+| 11 | 缺 CSRF token / Referer 跨源拒绝（CP5） | `token(null)` → CSRF_TOKEN_MISSING；跨源 Referer → CSRF_REFERER_MISMATCH |
+| 12 | 不得劣于旧基线 + 脱敏审计（CP6） | 旧基线放行的 20 条全拦；session id 掩码 + origin query 删除；`java McpBrowserResponseGuard` → **26 断言 / 0 误杀** |
+
+> 全部 12 项可在 [`examples/browser-response-guard/`](../examples/browser-response-guard/README.md) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
+> ⚠️ 参考实现**未接入主模块**；allowlist/token/绑定地址硬编码、IP 字面量分类、session 绑定字符串标志为演示约束；**本框架不受 `34237` 等第三方 CVE 直接影响，但核心依赖官方 SDK，须部署后逐路径复查响应头**。
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.78 (2026-11-24) · 攻击面 40 → 42 类_
