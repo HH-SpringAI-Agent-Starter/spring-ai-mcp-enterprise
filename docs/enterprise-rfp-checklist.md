@@ -492,6 +492,8 @@
 
 > **2026-11-25 更新依据**：IoTDB `135747` 把连接口令明文写进日志（读日志是运维日常动作）、AWS `135614` 证明 `sensitiveData` 声明被 prompt injection 绕过且**升级后仍须轮换凭据**、mcp-server-fetch `134492` 证明出口 allowlist 漏掉 IPv6 site-local `fec0::/10` —— 十一段式收口到第十一段：**日志 / 遥测输出面（可观测性出口）也不是安全边界**。中国经营报 11-22 / IDC MarketScape 2026（28 家厂商）把采购从「造智能体」转向「管智能体」，治理合规 58.7% 居首，验收四问末问「出偏差能不能追溯」直指出口可审计 → 出口必须按内容独立定级脱敏、append-only 审计、默认 fail-closed。完整 12 项输出面验收清单 + 买方必问 5 问见 [`observability-redaction-boundary-2026-11-25.md`](observability-redaction-boundary-2026-11-25.md)。
 
+> **2026-11-28 更新依据**：`CVE-2026-111770`（官方 MCP **TypeScript** SDK 2.0.0–2.3.0，CVSS 3.1 7.7，CWE-362，NVD 11-05 / 阿里云 AVD 11-22）共享无状态 transport 时只按 JSON-RPC id 关联、客户端 id 从 0 开始必然碰撞 → 响应/通知投错客户端，修 2.3.0 且升级会破坏复用实例须改代码 —— **传输实例不是隔离边界**；`CVE-2026-138026`（VulnCheck 11-27）Crypto APIs 14 包 HTTP 模式绑 0.0.0.0 无鉴权、运营者 key 被任意调用方消费须轮换 —— **绑定位置不是授权、凭证必须按 owner 隔离**；11-27 同批 8 个 MCP CVE（网络绑定缺鉴权 / SSRF / SQL 闸门漏写文件语句）证明这是整类工程模式问题；Jupyter 77318/77359 的 `/mcp` 有 token 但 `/api/*` 管理路由裸奔 —— **数据面 token ≠ 管理面 token**。十四段式收口到第十四段：**共享传输 / 跨客户端隔离面也不是安全边界**。正面标杆 Azure AI Gateway 11-28 GA（$500/月、调用方 key 换 managed identity、按 user/team/agent 归属成本；实测指出接网关不阻止直连上游须私有端点+RBAC）。完整 12 项共享传输验收清单 + 买方必问 5 问见 [`shared-transport-boundary-2026-11-28.md`](shared-transport-boundary-2026-11-28.md)。
+
 > **2026-11-27 更新依据**：`CVE-2026-131688`（CVSS 3.1 8.1，11-26）受限 scope bearer token 提权至 WordPress 管理员 —— scope 声明不是权限边界；`CVE-2026-136620`（CVSS 3.1 7.1，11-25 入库）`confirmation_token` 被原路返回给同一调用方、输出路径无 confinement —— 确认令牌是流程句柄不是独立审批人；官方 MCP servers v2.5.0（11-18 八洞）只读 `git_diff` 经构造 `.git/index` 读目录外文件、`git_merge` 触发仓库自带 hook 以 root 执行、filesystem 符号链接 TOCTOU（Windows #5600 未修）、npm 语义版 2.4.0 不提示升级 —— 只读入口的内部委托动作必须逐段重判，升级 ≠ 修复。十三段式收口到第十三段：**审批确认 / 委托链面也不是安全边界**。完整 12 项审批链验收清单 + 买方必问 5 问见 [`approval-chain-boundary-2026-11-27.md`](approval-chain-boundary-2026-11-27.md)。
 
 > **2026-11-26 更新依据**：`CVE-2026-59726`（CVSS 10.0，ruflo < 3.16.3）证明投毒可持久化进 AgentDB 学习存储、影响未来所有用户且**重新部署不能撤销投毒**；NIST SP 2400-102e 草案把长期记忆投毒列入 Agentic SI 并指出检索阶段是独立控制点；Nodeflare 13 次写入实测证明写门把非期望写入从 7/7 降到 0/7、provenance 命中模式扫描漏掉的那一条 —— 十二段式收口到第十二段：**持久化记忆 / 学习存储面（跨会话状态）也不是安全边界**。修复是写路径不是过滤器、补丁 ≠ 清干净、加密 ≠ 语义可信 → 写入须默认隔离、带 host provenance 与 scope/TTL、全局永久须升级审批、召回进高权限前重定级、留 hash 可回滚。完整 12 项记忆面验收清单 + 买方必问 5 问见 [`persistent-memory-boundary-2026-11-26.md`](persistent-memory-boundary-2026-11-26.md)。
@@ -545,4 +547,28 @@
 
 ---
 
-_本清单随项目版本持续更新。最后更新: V1.81 (2026-11-27) · 攻击面 46 → 48 类_
+### 🔐 共享传输 / 跨客户端隔离面 12 项验收列（V1.82，可直接进标书）
+
+> 完整矩阵（12 项逐条 → 控制点 → 仓库真实文件 → 现场验收 / 买方必问 5 问 / 竞品差异化 / 三档报价 / 24-48-72h）见 [`shared-transport-boundary-2026-11-28.md`](shared-transport-boundary-2026-11-28.md)。
+
+| # | 验收项 | 现场验收方式 |
+| --- | --- | --- |
+| 1 | 传输/服务实例禁止跨客户端复用（CP1） | 先 alice attach `t1`、再 bob 用 `t1` → DENY@CP1 |
+| 2 | 同一 principal 复用自己实例不误杀（CP1） | alice 二次用自己的实例 → ALLOW |
+| 3 | STDIO 单客户端豁免（CP1） | STDIO 无 session → ALLOW |
+| 4 | 消息强制会话归属而非只靠 JSON-RPC id（CP2） | id 从 0 开始但无 session / 会话绑他人 → DENY@CP2 |
+| 5 | scope 声明 / readOnlyHint 只进审计（CP2/CP6） | 声明 ADMIN、hint=true 但会话正确 → 仍 ALLOW |
+| 6 | 管理路由独立鉴权（CP3） | `/api/connect`/`/api/stop` 无独立 admin token → DENY@CP3 |
+| 7 | 非 loopback 绑定 fail-closed（CP4） | `0.0.0.0`/`192.168.1.100` 无 token → DENY@CP4 |
+| 8 | 调用方凭证按 owner 隔离（CP5） | operator key 被 alice/bob 消费 → DENY@CP5 |
+| 9 | 凭证原文不落审计（CP6） | 仅记 `sha256:` 前 12 位，原文不入盘 |
+| 10 | 审计 append-only（CP6） | 条目只增不减，无 mutator 删除 |
+| 11 | 不完整请求 fail-closed（CP0） | null / 缺字段 → DENY |
+| 12 | 合法调用 0 误杀 + 不得劣于旧基线 | 9 条合法对照全 ALLOW；旧基线漏 17/20；`java SharedTransportGuardSelfTest` → **32 断言 / 0 误杀** |
+
+> 全部 12 项可在 [`examples/shared-transport-guard/`](../examples/shared-transport-guard/) 现场跑（纯 JDK 17 零依赖，不进 Maven reactor）。
+> ⚠️ 守卫**未接入主模块**；`ATTACHED` 为进程内 Map、会话/令牌绑定为字符串标志，**非分布式会话存储 / 非密码学签名 / 非真实传输层实现**；CVE-2026-111770 影响的是官方 **TypeScript** SDK、本框架核心依赖 **Java** SDK 须按语言区分。**本框架不受 111770/138026/77318 等第三方 CVE 直接影响。**
+
+---
+
+_本清单随项目版本持续更新。最后更新: V1.82 (2026-11-28) · 攻击面 48 → 50 类_
